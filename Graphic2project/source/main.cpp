@@ -91,7 +91,7 @@ class DEMO_APP
 
 	//index buffer
 	ID3D11Buffer* IndexBuffer;
-
+	ID3D11Buffer* dexBuffer;
 	//depth perspective
 	ID3D11Texture2D* m_ZBuffer;
 	ID3D11DepthStencilView* m_DepthView;
@@ -128,7 +128,9 @@ class DEMO_APP
 	Matrix CameraTranslationMatrix;
 
 	int CameraUpDown;
-	float CameraX = 0, CameraY = 0, CameraZ = -3;
+
+	float CameraX = 0, CameraY = 0, CameraZ = 3;
+
 	void MouseMovement(bool& move, float dt);
 
 	struct ANIMATION
@@ -165,6 +167,7 @@ public:
 	unsigned int maxGridIndices = 0;
 
 	Vertex Cube[776];
+	Vertex Star[22];
 	Vertex m_vtGrid_Verts[86];
 
 	DEMO_APP(HINSTANCE hinst, WNDPROC proc);
@@ -245,7 +248,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	// TODO: PART 1 STEP 5
 	hr = m_snSwapChain->GetDesc(&m_scDesc);
 
-	m_mxWorldMatrix.TranslateMatrix(0.0f, 0.0f, -3.0f);
+	m_mxWorldMatrix.TranslateMatrix(0.0f, 0.0f, 3.0f);
 
 #pragma region Camera
 
@@ -413,6 +416,241 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	InitIndexData.SysMemPitch = 0;
 	InitIndexData.SysMemSlicePitch = 0;
 	m_iDevice->CreateBuffer(&IndexBufferDesc, &InitIndexData, &IndexBuffer);
+
+#pragma endregion
+
+#pragma region //Star
+
+	ID3D11Buffer* Buffer;
+
+	//white
+	Star[0].x = 0;
+	Star[0].y = 0;
+	Star[0].z = 0;
+	Star[0].w = 1;
+	Star[0].Setcolor(1, 1, 1, 1);
+	//red
+	Star[1].x = 0;
+	Star[1].y = 1;
+	Star[1].z = 0;
+	Star[1].w = 1;
+	Star[1].Setcolor(1, 1, 0, 0);
+	//red
+	Star[2].x = 0.3f;
+	Star[2].y = 0.3f;
+	Star[2].z = 0;
+	Star[2].w = 1;
+	Star[2].Setcolor(1, 1, 0, 0);
+	//blue
+	Star[3].x = 0.7f;
+	Star[3].y = 0.3f;
+	Star[3].z = 0;
+	Star[3].w = 1;
+	Star[3].Setcolor(1, 0, 0, 1);
+	//blue
+	Star[4].x = 0.4f;
+	Star[4].y = -0.2f;
+	Star[4].z = 0;
+	Star[4].w = 1;
+	Star[4].Setcolor(1, 0, 0, 1);
+	//green
+	Star[5].x = 0.4f;
+	Star[5].y = -0.7f;
+	Star[5].z = 0;
+	Star[5].w = 1;
+	Star[5].Setcolor(1, 0, 1, 0);
+	//green
+	Star[6].x = 0;
+	Star[6].y = -0.4f;
+	Star[6].z = 0;
+	Star[6].w = 1;
+	Star[6].Setcolor(1, 0, 1, 0);
+	//yellow
+	Star[7].x = -0.4f;
+	Star[7].y = -0.7f;
+	Star[7].z = 0;
+	Star[7].w = 1;
+	Star[7].Setcolor(1, 1, 1, 0);
+	//yellow
+	Star[8].x = -0.4f;
+	Star[8].y = -0.2f;
+	Star[8].z = 0;
+	Star[8].w = 1;
+	Star[8].Setcolor(1, 1, 1, 0);
+	//cyan
+	Star[9].x = -0.7f;
+	Star[9].y = 0.3f;
+	Star[9].z = 0;
+	Star[9].w = 1;
+	Star[9].Setcolor(1, 0, 1, 1);
+	//cyan
+	Star[10].x = -0.3f;
+	Star[10].y = 0.3f;
+	Star[10].z = 0;
+	Star[10].w = 1;
+	Star[10].Setcolor(1, 0, 1, 1);
+	//white
+	Star[11].x = 0;
+	Star[11].y = 0;
+	Star[11].z = 0.5f;
+	Star[11].w = 1;
+	Star[11].Setcolor(1, 1, 1, 1);
+	//red
+	Star[12].x = 0;
+	Star[12].y = 1;
+	Star[12].z = 0.5f;
+	Star[12].w = 1;
+	Star[12].Setcolor(1, 1, 0, 0);
+	//cyan
+	Star[13].x = -0.3f;
+	Star[13].y = 0.3f;
+	Star[13].z = 0.5f;
+	Star[13].w = 1;
+	Star[13].Setcolor(1, 0, 1, 1);
+	//cyan
+	Star[14].x = -0.7f;
+	Star[14].y = 0.3f;
+	Star[14].z = 0.5f;
+	Star[14].w = 1;
+	Star[14].Setcolor(1, 0, 1, 1);
+	//yelloe
+	Star[15].x = -0.4f;
+	Star[15].y = -0.2f;
+	Star[15].z = 0.5f;
+	Star[15].w = 1;
+	Star[15].Setcolor(1, 1, 1, 0);
+	//yellow
+	Star[16].x = -0.4f;
+	Star[16].y = -0.7f;
+	Star[16].z = 0.5f;
+	Star[16].w = 1;
+	Star[16].Setcolor(1, 1, 1, 0);
+	//green
+	Star[17].x = 0;
+	Star[17].y = -0.4f;
+	Star[17].z = 0.5f;
+	Star[17].w = 1;
+	Star[17].Setcolor(1, 0, 1, 0);
+	//green
+	Star[18].x = 0.4f;
+	Star[18].y = -0.7f;
+	Star[18].z = 0.5f;
+	Star[18].w = 1;
+	Star[18].Setcolor(1, 0, 1, 0);
+	//wblue
+	Star[19].x = 0.4f;
+	Star[19].y = -0.2f;
+	Star[19].z = 0.5f;
+	Star[19].w = 1;
+	Star[19].Setcolor(1, 0, 0, 1);
+	//blue
+	Star[20].x = 0.7f;
+	Star[20].y = 0.3f;
+	Star[20].z = 0.5f;
+	Star[20].w = 1;
+	Star[20].Setcolor(1, 0, 0, 1);
+	//red
+	Star[21].x = 0.3f;
+	Star[21].y = 0.3f;
+	Star[21].z = 0.5f;
+	Star[21].w = 1;
+	Star[21].Setcolor(1, 1, 0, 0);
+
+
+#pragma endregion
+
+	//// TODO: PART 2 STEP 3b
+	D3D11_BUFFER_DESC Desc;
+	Desc.Usage = D3D11_USAGE_IMMUTABLE;
+	Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	Desc.CPUAccessFlags = NULL;
+	Desc.ByteWidth = sizeof(Vertex) * 22;
+	Desc.MiscFlags = 0;
+
+	//// TODO: PART 2 STEP 3c
+	D3D11_SUBRESOURCE_DATA Data;
+	Data.pSysMem = Star;
+	Data.SysMemPitch = 0;
+	Data.SysMemSlicePitch = 0;
+	// TODO: PART 2 STEP 3d
+	m_iDevice->CreateBuffer(&Desc, &Data, &Buffer);
+
+	GeometryContainer.push_back(Buffer);
+
+#pragma region IndexBuffer
+	unsigned int maxIndex = 120;
+	maxGridIndices = maxIndex;
+	unsigned int index[120] =
+	{
+		//front
+		0, 1, 2,
+		0, 2, 3,
+		0, 3, 4,
+		0, 4, 5,
+		0, 5, 6,
+		0, 6, 7,
+		0, 7, 8,
+		0, 8, 9,
+		0, 9, 10,
+		0, 10, 1,
+		//back
+		11, 12, 13,
+		11, 13, 14,
+		11, 14, 15,
+		11, 15, 16,
+		11, 16, 17,
+		11, 17, 18,
+		11, 18, 19,
+		11, 19, 20,
+		11, 20, 21,
+		11, 21, 12,
+		//sides
+		//top
+		1, 12, 2,
+		12, 21, 2,
+		12, 1, 13,
+		1, 10, 13,
+		//left upper
+		2, 21, 3,
+		21, 20, 3,
+		// right upper
+		13, 10, 14,
+		10, 9, 14,
+		//B_Right upper
+		14, 9, 15,
+		9, 8, 15,
+		//B_Left upper
+		3, 20, 4,
+		20, 19, 4,
+
+		//Left bottom
+		4, 19, 5,
+		19, 18, 5,
+		//Right bottom
+		15, 8, 7,
+		16, 15, 7,
+		//B_right bottom
+		6, 17, 16,
+		7, 6, 16,
+		//B_left bottom
+		17, 6, 5,
+		17, 5, 18,
+	};
+
+	D3D11_BUFFER_DESC IndexDesc;
+	IndexDesc.Usage = D3D11_USAGE_IMMUTABLE;
+	IndexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	IndexDesc.CPUAccessFlags = NULL;
+	IndexDesc.ByteWidth = sizeof(unsigned int)*maxIndex;
+	IndexDesc.MiscFlags = 0;
+
+	//// TODO: PART 2 STEP 3c
+	D3D11_SUBRESOURCE_DATA IndexData;
+	IndexData.pSysMem = index;
+	IndexData.SysMemPitch = 0;
+	IndexData.SysMemSlicePitch = 0;
+	m_iDevice->CreateBuffer(&IndexDesc, &IndexData, &dexBuffer);
+
 #pragma endregion
 
 	// TODO: PART 2 STEP 8a
@@ -426,6 +664,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	// setting the Constant variables
 	m_objObject.matrix_objectWorld = m_mxWorldMatrix;
 	m_Grid.matrix_objectWorld = m_mxWorldMatrix;
+	m_Grid.matrix_objectWorld.SetTranslate(0, 2, 3);
 
 #pragma region TextureResource
 
@@ -668,6 +907,7 @@ bool DEMO_APP::Run()
 
 	if (moved)
 	{
+
 		m_mxViewMatrix.SetTranslate(0, 0, 0);
 
 		m_mxViewMatrix = m_mxViewMatrix * CameraRotationMatrix;
@@ -752,7 +992,7 @@ bool DEMO_APP::Run()
 
 	m_objObject.matrix_objectWorld.InverseOrthogonalAffinedMatrix();
 
-	m_objObject.matrix_objectWorld.SetTranslate(0, 0.5f, -3);
+	m_objObject.matrix_objectWorld.SetTranslate(0, 0.5f, 3);
 
 	memcpy(mapResource.pData, &m_objObject, sizeof(m_objObject));
 
@@ -768,6 +1008,7 @@ bool DEMO_APP::Run()
 	m_dcConext->Unmap(m_ConstantBuffer[SCENE], 0);
 
 #pragma endregion 
+
 
 	m_dcConext->PSSetShader(m_shaderPS, NULL, 0);
 	m_dcConext->VSSetShader(m_shaderVS, NULL, 0);
@@ -795,20 +1036,20 @@ bool DEMO_APP::Run()
 	//setting the renderstate
 	m_dcConext->RSSetState(m_pRasterState);
 	m_dcConext->DrawIndexed(maxIndices, 0, 0);
-#pragma region Grid
-
+#pragma region Star
 	D3D11_MAPPED_SUBRESOURCE GridmapResource;
 	//\// World Matrix
 	m_dcConext->Map(m_ConstantBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &GridmapResource);
+
+	Matrix temp = m_Grid.matrix_objectWorld;
+
+	m_Grid.matrix_objectWorld = YRotation * temp;
 
 	memcpy(GridmapResource.pData, &m_Grid, sizeof(m_Grid));
 
 	m_dcConext->Unmap(m_ConstantBuffer[OBJECT], 0);
 
-#pragma endregion
-
-	m_dcConext->PSSetShader(m_shaderPS, NULL, 0);
-	m_dcConext->VSSetShader(m_shaderVS, NULL, 0);
+#pragma endregion 
 
 #pragma region Drawing the Grid
 	//Constant buffer manipulation
@@ -816,25 +1057,24 @@ bool DEMO_APP::Run()
 	// drawing
 	m_dcConext->IASetVertexBuffers(0, 1, &GeometryContainer[1], &stride, &zero);
 
-	m_dcConext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+	m_dcConext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	m_dcConext->IASetIndexBuffer(dexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
 	//setting the renderstate
 	m_dcConext->RSSetState(m_pRasterStateFrontCull);
-
-	m_dcConext->Draw(maxGridIndices, 0);
+	m_dcConext->DrawIndexed(maxGridIndices, 0, 0);
 
 	//setting the renderstate
-
 	m_dcConext->RSSetState(m_pRasterState);
-	m_dcConext->Draw(maxGridIndices, 0);
+	m_dcConext->DrawIndexed(maxGridIndices, 0, 0);
 
 #pragma endregion
-
 	//Swaping the back buffer info with the front buffer
 	m_snSwapChain->Present(1, 0);
 	// END OF PART 1
 	return true;
 }
+
 void DEMO_APP::MouseMovement(bool& move, float dt)
 {
 	RECT WinRect;

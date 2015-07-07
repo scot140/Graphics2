@@ -58,12 +58,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="source\Trivial_VS.hlsl">
-      <Filter>Shader</Filter>
-    </FxCompile>
-    <FxCompile Include="source\Trivial_PS.hlsl">
-      <Filter>Shader</Filter>
-    </FxCompile>
     <FxCompile Include="source\VertexShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
