@@ -661,10 +661,11 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 	};
 	hr = m_iDevice->CreateInputLayout(element, 3, VertexShader, sizeof(VertexShader), &m_pVertexInput);
+
 	// setting the Constant variables
 	m_objObject.matrix_objectWorld = m_mxWorldMatrix;
 	m_Grid.matrix_objectWorld = m_mxWorldMatrix;
-	m_Grid.matrix_objectWorld.SetTranslate(0, 2, 3);
+	m_Grid.matrix_objectWorld.SetTranslate(0, 3, 3);
 
 #pragma region TextureResource
 
