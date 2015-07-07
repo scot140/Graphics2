@@ -521,68 +521,6 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	ConstantBufferData.pSysMem = &animate;
 
 	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_ConstantBuffer[TIMER]);
-	//\//
-
-#pragma region Intializing the Grid
-
-	maxGridIndices = 86;
-	//Creating the Horizontal lines
-	float vertX = -1.0f;
-
-	for (int i = 0; i < 42; i++)
-	{
-		float z = 1.0f - ((i / 2) / 10.0f);
-		m_vtGrid_Verts[i].x = vertX;
-		m_vtGrid_Verts[i].y = 0;
-		m_vtGrid_Verts[i].z = (z * 1);
-		m_vtGrid_Verts[i].w = 1;
-
-		m_vtGrid_Verts[i].a = 1;
-		m_vtGrid_Verts[i].r = 1;
-		m_vtGrid_Verts[i].g = 0;
-		m_vtGrid_Verts[i].b = 0;
-		vertX *= -1;
-	}
-
-	//Creating the Vertical lines
-	vertX = 1.0f;
-
-	for (int i = 44; i < 86; i++)
-	{
-		float Xaxis = -3.2f + ((i / 2) / 10.0f);
-		m_vtGrid_Verts[i].x = Xaxis;
-		m_vtGrid_Verts[i].y = 0;
-		m_vtGrid_Verts[i].z = vertX;
-		m_vtGrid_Verts[i].w = 1;
-
-		//setting the color
-		m_vtGrid_Verts[i].a = 1;
-		m_vtGrid_Verts[i].r = 0;
-		m_vtGrid_Verts[i].g = 0;
-		m_vtGrid_Verts[i].b = 1;
-
-		vertX *= -1;
-	}
-
-	ID3D11Buffer* GridBuffer;
-	//// TODO: PART 2 STEP 3b
-	BufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
-	BufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	BufferDesc.CPUAccessFlags = NULL;
-	BufferDesc.ByteWidth = sizeof(Vertex) * maxGridIndices;
-	BufferDesc.MiscFlags = 0;
-
-	//// TODO: PART 2 STEP 3c
-
-	InitData.pSysMem = m_vtGrid_Verts;
-	InitData.SysMemPitch = 0;
-	InitData.SysMemSlicePitch = 0;
-	// TODO: PART 2 STEP 3d
-	m_iDevice->CreateBuffer(&BufferDesc, &InitData, &GridBuffer);
-
-	GeometryContainer.push_back(GridBuffer);
-
-#pragma endregion
 
 	g_DepthView = m_DepthView;
 	g_ZBuffer = m_ZBuffer;

@@ -1,7 +1,7 @@
 struct OUTPUT_VERTEX
 {
 	float4 projectedCoordinate : SV_POSITION;
-	float2 uvOut : UV;
+	float2 uvOut: UV;
 	float4 colorOut : COLOR;
 };
 
