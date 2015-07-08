@@ -333,8 +333,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	DefaultTextureSubresource(Maplevels, numbers_test_pixels, numbers_test_leveloffsets, numbers_test_width, numbers_test_numlevels);
 
 	cube.CreateTexture(m_iDevice, &SamplerDesc, &TextureDesc, Maplevels);
-
-	//cube.SetAnimation(4, (float)numbers_test_width);
+	cube.SetAnimation(4, (float)numbers_test_width);
 
 	// setting the Constant variables
 
@@ -476,7 +475,7 @@ bool DEMO_APP::Run()
 	rasterArray[0] = m_pRasterState;
 	rasterArray[1] = m_pRasterStateFrontCull;
 
-	cube.Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, rasterArray, 1);
+	cube.Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, rasterArray, 1, (float)dt.Delta());
 
 	//Swaping the back buffer info with the front buffer
 	m_snSwapChain->Present(0, 0);

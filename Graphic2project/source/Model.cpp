@@ -101,7 +101,6 @@ void Model::loadVerts(unsigned int numVerts, float* Verts, float* UV)
 
 void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const unsigned int* Indices, Scene* scnMatrix)
 {
-
 	if (device == nullptr)
 	{
 		return;
@@ -137,7 +136,6 @@ void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const u
 	{
 		return;
 	}
-
 
 	//Index Buffer
 
@@ -186,8 +184,6 @@ void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const u
 	ConstantBufferData.pSysMem = &m_aniAnimaiton;
 
 	device->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBuffer_PS);
-
-
 }
 
 void Model::CreateTexture(ID3D11Device* device, D3D11_SAMPLER_DESC* SamplerDesc, D3D11_TEXTURE2D_DESC* Texture, D3D11_SUBRESOURCE_DATA* SubResource)
@@ -221,7 +217,7 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 	p_dcContext->VSSetConstantBuffers(0, 2, m_pConstBuffer);
 	p_dcContext->PSSetConstantBuffers(0, 1, &m_pConstBuffer_PS);
 
-	unsigned int stride = sizeof(XMFLOAT4);
+	unsigned int stride = sizeof(INPUT_VERTEX);
 	unsigned int zero = 0;
 
 	p_dcContext->IASetVertexBuffers(0, 1, &m_pBuffer, &stride, &zero);
