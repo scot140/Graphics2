@@ -73,70 +73,42 @@ class DEMO_APP
 	ID3D11Texture2D* m_pBackBuffer;
 	ID3D11RasterizerState* m_pRasterState;
 	DXGI_SWAP_CHAIN_DESC m_scDesc;
-	// TODO: PART 2 STEP 2
-	// BEGIN PART 5
-	// TODO: PART 5 STEP 1
 
 	// TODO: PART 2 STEP 4
 	ID3D11PixelShader*	m_shaderPS;
 	ID3D11VertexShader* m_shaderVS;
-	// BEGIN PART 3
-	// TODO: PART 3 STEP 1
-
-
-	//index buffer
 
 	//depth perspective
 	ID3D11Texture2D* m_ZBuffer;
 	ID3D11DepthStencilView* m_DepthView;
 	ID3D11DepthStencilState * m_pDepthState;
 
-
-
 	//Blending
 	ID3D11BlendState* m_pBlendState;
 	ID3D11RasterizerState* m_pRasterStateFrontCull;
 
-	// TODO: PART 3 STEP 2b
-	
-
-	// TODO: PART 3 STEP 4a
-
 	//camera
+	//Math
+	XMFLOAT4X4 m_mxWorldMatrix;
+	XMFLOAT4X4 m_mxViewMatrix;
+	XMFLOAT4X4 m_mxProjectonMatrix;
+	Scene SceneMatrices;
 
-
+	//misc
 	int CameraUpDown;
-
-	float CameraX = 0, CameraY = 0, CameraZ = 3;
-
+	float CameraX = 0, CameraY = 0, CameraZ = -1;
 	void MouseMovement(bool& move, float dt);
-
-
-	ANIMATION animate;
-	float delta = 0;
 
 	POINT startPoint;
 	POINT CurrentPoint;
 	bool LbuttonDown;
 
-	unsigned int length;
-
 public:
-
-	// BEGIN PART 2
-	// TODO: PART 2 STEP 1
-
-	unsigned int maxVerts = 0;
-
-	unsigned int maxIndices = 0;
-	unsigned int maxGridIndices = 0;
-
-	XMFLOAT4 Cube[776];
-	XMFLOAT4 Star[22];
-	XMFLOAT4 m_vtGrid_Verts[86];
+	Model cube;
 
 	DEMO_APP(HINSTANCE hinst, WNDPROC proc);
 	int DistanceFormula(POINT LH, POINT RH);
+	void WorldCameraProjectionSetup();
 	bool Run();
 	bool ShutDown();
 	XTime dt;
@@ -200,19 +172,15 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 		return;
 	}
 
-
-	//setting the buffer
-
 	// TODO: PART 1 STEP 4
-	hr = m_snSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)(&m_pBackBuffer));
-
-	hr = m_iDevice->CreateRenderTargetView(m_pBackBuffer, NULL, &m_rtvRenderTargetView);
+	m_snSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)(&m_pBackBuffer));
+	m_iDevice->CreateRenderTargetView(m_pBackBuffer, NULL, &m_rtvRenderTargetView);
 
 	// TODO: PART 1 STEP 5
 	hr = m_snSwapChain->GetDesc(&m_scDesc);
 
-
-
+	//Setting up the World/Camera/Projection Matrices
+	WorldCameraProjectionSetup();
 
 #pragma region Depth Creation
 
@@ -239,7 +207,12 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	DefaultDepthDesc(&depthStencilDesc);
 
-	m_iDevice->CreateDepthStencilState(&depthStencilDesc, &m_pDepthState);
+	hr = m_iDevice->CreateDepthStencilState(&depthStencilDesc, &m_pDepthState);
+
+	if (hr == E_INVALIDARG)
+	{
+		return;
+	}
 
 	D3D11_DEPTH_STENCIL_VIEW_DESC descDepthView;
 	ZeroMemory(&descDepthView, sizeof(descDepthView));
@@ -247,8 +220,12 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	descDepthView.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 	descDepthView.Texture2D.MipSlice = 0;
 
-	m_iDevice->CreateDepthStencilView(m_ZBuffer, &descDepthView, &m_DepthView);
+	hr = m_iDevice->CreateDepthStencilView(m_ZBuffer, &descDepthView, &m_DepthView);
 
+	if (hr == E_INVALIDARG)
+	{
+		return;
+	}
 #pragma endregion
 
 #pragma region Creation of the RasterizerState
@@ -270,8 +247,12 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	rasterizerState.CullMode = D3D11_CULL_FRONT;
 	rasterizerState.FrontCounterClockwise = false;
 
-	m_iDevice->CreateRasterizerState(&rasterizerState, &m_pRasterStateFrontCull);
+	hr = m_iDevice->CreateRasterizerState(&rasterizerState, &m_pRasterStateFrontCull);
 
+	if (hr == E_INVALIDARG)
+	{
+		return;
+	}
 #pragma endregion
 
 #pragma region BlendState
@@ -281,6 +262,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	DefaultBlendDesc(&BlendDesc);
 
 	m_iDevice->CreateBlendState(&BlendDesc, &m_pBlendState);
+
 #pragma endregion
 
 	//setting up the viewport
@@ -303,7 +285,56 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 	};
-	hr = m_iDevice->CreateInputLayout(element, 3, VertexShader, sizeof(VertexShader), &m_pVertexInput);
+
+	m_iDevice->CreateInputLayout(element, 3, VertexShader, sizeof(VertexShader), &m_pVertexInput);
+
+	//cube model
+	cube.m_objMatrix.m_mxConstMatrix = m_mxWorldMatrix;
+
+	unsigned int max = _countof(Cube_data);
+
+	XMFLOAT4* positions = new XMFLOAT4[max];
+	XMFLOAT2* uvs = new XMFLOAT2[max];
+
+	for (unsigned int i = 0, posIndex = 0; i < max; i++)
+	{
+
+		positions[i].x = Cube_data[i].pos[posIndex];
+		++posIndex;
+		positions[i].y = Cube_data[i].pos[posIndex];
+		++posIndex;
+		positions[i].z = Cube_data[i].pos[posIndex];
+		posIndex = 0;
+
+		positions[i].w = 1;
+	}
+
+	for (unsigned int i = 0, posIndex = 0; i < max; i++)
+	{
+		uvs[i].x = Cube_data[i].uvw[posIndex];
+		++posIndex;
+
+		uvs[i].y = Cube_data[i].uvw[posIndex];
+		++posIndex;
+
+		posIndex = 0;
+	}
+
+	cube.loadVerts(max, positions, uvs);
+	cube.CreateBuffers(m_iDevice, _countof(Cube_indicies), Cube_indicies, &SceneMatrices);
+
+	D3D11_SAMPLER_DESC SamplerDesc;
+	DefaultSamplerStateDesc(&SamplerDesc);
+
+	D3D11_TEXTURE2D_DESC TextureDesc;
+	DefaultTextureDesc(&TextureDesc, numbers_test_width, numbers_test_height, numbers_test_numlevels);
+
+	D3D11_SUBRESOURCE_DATA Maplevels[numbers_test_numlevels];
+	DefaultTextureSubresource(Maplevels, numbers_test_pixels, numbers_test_leveloffsets, numbers_test_width, numbers_test_numlevels);
+
+	cube.CreateTexture(m_iDevice, &SamplerDesc, &TextureDesc, Maplevels);
+
+	//cube.SetAnimation(4, (float)numbers_test_width);
 
 	// setting the Constant variables
 
@@ -312,6 +343,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	//setting the width of each scene
 
+#pragma region Global setup
 	g_DepthView = m_DepthView;
 	g_ZBuffer = m_ZBuffer;
 	g_pDepthState = m_pDepthState;
@@ -320,8 +352,8 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	g_iDevice = m_iDevice;
 	g_dcConext = m_dcConext;
 	g_pBackBuffer = m_pBackBuffer;
+#pragma endregion
 
-	m_scDesc.BufferCount;
 	dt.Restart();
 }
 
@@ -399,17 +431,88 @@ bool DEMO_APP::Run()
 		moved = true;
 	}
 
+	if (moved)
+	{
+		XMMATRIX CopyView = XMLoadFloat4x4(&m_mxViewMatrix);
 
+		XMStoreFloat4x4(&m_mxViewMatrix, CopyView);
+
+		SceneMatrices.matrix_sceneCamera = m_mxViewMatrix;
+	}
+#pragma endregion
+
+#pragma region Cube ConstantBuffer Mapping
+	D3D11_MAPPED_SUBRESOURCE resource;
+
+	m_dcConext->Map(cube.m_pConstBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &resource);
+
+	XMMATRIX matrix = XMLoadFloat4x4(&cube.m_objMatrix.m_mxConstMatrix);
+
+	matrix = XMMatrixRotationY((float)dt.Delta()) * matrix;
+
+	XMStoreFloat4x4(&cube.m_objMatrix.m_mxConstMatrix, matrix);
+
+	memcpy(resource.pData, &cube.m_objMatrix, sizeof(cube.m_objMatrix));
+
+	m_dcConext->Unmap(cube.m_pConstBuffer[OBJECT], 0);
+
+	//////////////////////////////////////////////////////////////////////
+
+	D3D11_MAPPED_SUBRESOURCE SceneResource;
+	ZeroMemory(&SceneResource, sizeof(SceneResource));
+
+	m_dcConext->Map(cube.m_pConstBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &SceneResource);
+
+	memcpy(SceneResource.pData, &SceneMatrices, sizeof(SceneMatrices));
+
+	m_dcConext->Unmap(cube.m_pConstBuffer[SCENE], 0);
 
 #pragma endregion
 
 	m_dcConext->PSSetShader(m_shaderPS, NULL, 0);
 	m_dcConext->VSSetShader(m_shaderVS, NULL, 0);
 
+	ID3D11RasterizerState* rasterArray[2];
+	rasterArray[0] = m_pRasterState;
+	rasterArray[1] = m_pRasterStateFrontCull;
+
+	cube.Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, rasterArray, 1);
+
 	//Swaping the back buffer info with the front buffer
-	m_snSwapChain->Present(1, 0);
+	m_snSwapChain->Present(0, 0);
 	// END OF PART 1
 	return true;
+}
+
+void DEMO_APP::WorldCameraProjectionSetup()
+{
+	//Setting the World matrix
+	XMMATRIX world = XMMatrixIdentity();
+	world = XMMatrixTranslation(0, 0, 1.0f);
+	XMStoreFloat4x4(&m_mxWorldMatrix, world);
+
+	/*******************************************************************/
+	//\//Setting the Camera Matrix
+
+	XMMATRIX view = XMMatrixIdentity();
+	//for the Look At Function
+	XMVECTOR pos = XMLoadFloat3(&XMFLOAT3(CameraX, CameraY, CameraZ));
+	XMVECTOR focus = XMLoadFloat3(&XMFLOAT3(0, 0, 0));
+	XMVECTOR height = XMLoadFloat3(&XMFLOAT3(0, 1, 0));
+	//Creating the Camera
+	view = XMMatrixLookAtLH(pos, focus, height);
+	//Saving the camera
+	XMStoreFloat4x4(&m_mxViewMatrix, view);
+
+	/*******************************************************************/
+	//Setting the Projection Matrix
+
+	XMMATRIX projection = XMMatrixIdentity();
+	projection = XMMatrixPerspectiveFovLH(FOV, ASPECT_RATIO, ZNEAR, ZFAR);
+	XMStoreFloat4x4(&m_mxProjectonMatrix, projection);
+
+	SceneMatrices.matrix_sceneCamera = m_mxViewMatrix;
+	SceneMatrices.matrix_Projection = m_mxProjectonMatrix;
 }
 
 void DEMO_APP::MouseMovement(bool& move, float dt)

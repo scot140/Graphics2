@@ -126,7 +126,7 @@ void DefaultTextureDesc(D3D11_TEXTURE2D_DESC* TextureDesc, unsigned int width, u
 	TextureDesc->SampleDesc.Quality = 0;
 }
 
-void DefaultTextureSubresource(D3D11_SUBRESOURCE_DATA* resource, unsigned int* pixels ,unsigned int* offset, unsigned int width, unsigned int numlevels)
+void DefaultTextureSubresource(D3D11_SUBRESOURCE_DATA* resource, const unsigned int* pixels, const unsigned int* offset, unsigned int width, unsigned int numlevels)
 {
 	ZeroMemory(resource, sizeof(D3D11_SUBRESOURCE_DATA) * numlevels);
 

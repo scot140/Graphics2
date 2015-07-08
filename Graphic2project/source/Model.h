@@ -7,15 +7,22 @@ using namespace DirectX;
 
 class Model
 {
+	struct INPUT_VERTEX
+	{
+		XMFLOAT4 pos;
+		XMFLOAT4 col;
+		XMFLOAT2 uv;
+	};
+
 	XMFLOAT3 *					m_pNormals;
 	XMFLOAT4 *					m_pVerts;
-	XMFLOAT3 *					m_pUVs;
+	XMFLOAT2 *					m_pUVs;
 	ANIMATION					m_aniAnimaiton;
+	INPUT_VERTEX *				m_vsInput;
 	float						delta;
 
 public:
 
-	XMFLOAT4X4					m_mxMatrix;
 	Object						m_objMatrix;
 	ID3D11Buffer *				m_pBuffer;
 	ID3D11Buffer *				m_pConstBuffer[2]; //vertex Shader's constant buffers
@@ -34,13 +41,13 @@ public:
 	void ScaleModel(float size);
 	void SetModelPosition(float x, float y, float z);
 	void SetAnimation(float maxframe, float width);
-	void loadVerts(unsigned int numVerts, XMFLOAT4* Verts, XMFLOAT3* UV = nullptr);
+	void loadVerts(unsigned int numVerts, XMFLOAT4* Verts, XMFLOAT2* UV = nullptr);
 	void loadVerts(unsigned int numVerts, float* Verts, float* UV = nullptr);
-	void CreateBuffers(ID3D11Device* device, unsigned int numIndices, float* Indices, Scene* scnMatrix);
+	void CreateBuffers(ID3D11Device* device, unsigned int numIndices, const unsigned int* Indices, Scene* scnMatrix);
 	void CreateTexture(ID3D11Device* device, D3D11_SAMPLER_DESC* SamplerDesc, D3D11_TEXTURE2D_DESC* Texture, D3D11_SUBRESOURCE_DATA* SubResource);
 	void UpdateAnimation(ID3D11DeviceContext* p_dcContext, float p_delta);
-	void Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY p_Topology, ID3D11RasterizerState** p_rasterArray = nullptr, unsigned int numRaster = 0, float p_delta = 0);
-	
+	void Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY p_Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST, ID3D11RasterizerState** p_rasterArray = nullptr, unsigned int numRaster = 0, float p_delta = 0);
+
 	//destructor
 	virtual ~Model();
 };

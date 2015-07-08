@@ -5,7 +5,7 @@
 
 Model::Model()
 {
-	XMStoreFloat4x4(&m_mxMatrix, XMMatrixIdentity());
+	XMStoreFloat4x4(&m_objMatrix.m_mxConstMatrix, XMMatrixIdentity());
 
 	m_pUVs = nullptr;
 	m_pVerts = nullptr;
@@ -25,10 +25,10 @@ void Model::ScaleModel(float size)
 {
 
 	XMMATRIX scale = XMMatrixScaling(size, size, size);
-	XMMATRIX math = XMLoadFloat4x4(&m_mxMatrix);
+	XMMATRIX math = XMLoadFloat4x4(&m_objMatrix.m_mxConstMatrix);
 	XMVECTOR pos = math.r[3];
 	math *= scale;
-	XMStoreFloat4x4(&m_mxMatrix, math);
+	XMStoreFloat4x4(&m_objMatrix.m_mxConstMatrix, math);
 
 	SetModelPosition(pos.m128_f32[0], pos.m128_f32[1], pos.m128_f32[2]);
 
@@ -36,9 +36,9 @@ void Model::ScaleModel(float size)
 
 void Model::SetModelPosition(float x, float y, float z)
 {
-	m_mxMatrix(3, 0) = x;
-	m_mxMatrix(3, 1) = y;
-	m_mxMatrix(3, 2) = z;
+	m_objMatrix.m_mxConstMatrix(3, 0) = x;
+	m_objMatrix.m_mxConstMatrix(3, 1) = y;
+	m_objMatrix.m_mxConstMatrix(3, 2) = z;
 }
 
 void Model::SetAnimation(float maxframe, float width)
@@ -48,7 +48,7 @@ void Model::SetAnimation(float maxframe, float width)
 	m_aniAnimaiton.width = width;
 }
 
-void Model::loadVerts(unsigned int numVerts, XMFLOAT4* Verts, XMFLOAT3* UV)
+void Model::loadVerts(unsigned int numVerts, XMFLOAT4* Verts, XMFLOAT2* UV)
 {
 	m_nMaxVerts = numVerts;
 	m_pVerts = Verts;
@@ -61,14 +61,13 @@ void Model::loadVerts(unsigned int numVerts, float* Verts, float* UV)
 {
 
 
-	m_nMaxVerts = numVerts;
-	m_pVerts = new XMFLOAT4[numVerts];
-	m_pUVs = new XMFLOAT3[m_nMaxVerts];
+	m_nMaxVerts = numVerts / 3;
+	m_pVerts = new XMFLOAT4[m_nMaxVerts];
+	m_pUVs = new XMFLOAT2[m_nMaxVerts];
 	//Loading in the Verts
 	int inputIndex = 0;
-	for (unsigned int i = 0; i < numVerts; i++)
+	for (unsigned int i = 0; i < m_nMaxVerts; i++)
 	{
-		inputIndex = 0;
 		//Loading in the Verts
 		m_pVerts[i].x = Verts[inputIndex];
 
@@ -89,19 +88,18 @@ void Model::loadVerts(unsigned int numVerts, float* Verts, float* UV)
 		m_pVerts[i].z = Verts[inputIndex];
 
 		//Loading in the UVs
-		m_pUVs[i].z = UV[inputIndex];
+		//m_pUVs[i].z = UV[inputIndex];
 
 		m_pVerts[i].w = 1;
 
-
-
+		++inputIndex;
 	}
 
 
 	//add normals here later thank you
 }
 
-void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, float* Indices, Scene* scnMatrix)
+void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const unsigned int* Indices, Scene* scnMatrix)
 {
 
 	if (device == nullptr)
@@ -109,16 +107,27 @@ void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, float* 
 		return;
 	}
 
+	m_vsInput = new INPUT_VERTEX[m_nMaxVerts];
+
+	XMFLOAT4 color = XMFLOAT4(1, 1, 0, 0);
+
+	for (unsigned int i = 0; i < m_nMaxVerts; i++)
+	{
+		m_vsInput[i].pos = m_pVerts[i];
+		m_vsInput[i].col = color;
+		m_vsInput[i].uv  = m_pUVs[i];
+	}
+
 	//Vertex buffer
 	D3D11_BUFFER_DESC BufferDesc;
 	BufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
 	BufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	BufferDesc.CPUAccessFlags = NULL;
-	BufferDesc.ByteWidth = sizeof(XMFLOAT4) * m_nMaxVerts;
+	BufferDesc.ByteWidth = sizeof(INPUT_VERTEX) * m_nMaxVerts;
 	BufferDesc.MiscFlags = 0;
 
 	D3D11_SUBRESOURCE_DATA InitData;
-	InitData.pSysMem = m_pVerts;
+	InitData.pSysMem = m_vsInput;
 	InitData.SysMemPitch = 0;
 	InitData.SysMemSlicePitch = 0;
 
@@ -129,19 +138,27 @@ void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, float* 
 		return;
 	}
 
+
 	//Index Buffer
 
 	//D3D11_BUFFER_DESC
 	m_nMaxIndices = numIndices;
-	BufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	BufferDesc.ByteWidth = sizeof(unsigned int) * m_nMaxIndices;
+
+	D3D11_BUFFER_DESC IndexBufferDesc;
+	IndexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+	IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	IndexBufferDesc.CPUAccessFlags = NULL;
+	IndexBufferDesc.ByteWidth = sizeof(unsigned int)*m_nMaxIndices;
+	IndexBufferDesc.MiscFlags = 0;
 
 	//D3D11_SUBRESOURCE_DATA
-	InitData.pSysMem = Indices;
-	InitData.SysMemPitch = 0;
-	InitData.SysMemSlicePitch = 0;
 
-	device->CreateBuffer(&BufferDesc, &InitData, &m_pIndexBuffer);
+	D3D11_SUBRESOURCE_DATA InitIndexData;
+	InitIndexData.pSysMem = Indices;
+	InitIndexData.SysMemPitch = 0;
+	InitIndexData.SysMemSlicePitch = 0;
+
+	device->CreateBuffer(&IndexBufferDesc, &InitIndexData, &m_pIndexBuffer);
 
 	//Constant buffer
 	D3D11_BUFFER_DESC cBufferDesc;
@@ -165,6 +182,12 @@ void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, float* 
 
 	device->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBuffer[SCENE]);
 
+	cBufferDesc.ByteWidth = sizeof(ANIMATION);
+	ConstantBufferData.pSysMem = &m_aniAnimaiton;
+
+	device->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBuffer_PS);
+
+
 }
 
 void Model::CreateTexture(ID3D11Device* device, D3D11_SAMPLER_DESC* SamplerDesc, D3D11_TEXTURE2D_DESC* Texture, D3D11_SUBRESOURCE_DATA* SubResource)
@@ -184,7 +207,7 @@ void Model::CreateTexture(ID3D11Device* device, D3D11_SAMPLER_DESC* SamplerDesc,
 
 }
 
-void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY p_Topology,ID3D11RasterizerState** p_rasterArray, unsigned int numRaster, float delta)
+void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY p_Topology, ID3D11RasterizerState** p_rasterArray, unsigned int numRaster, float delta)
 {
 	if (m_aniAnimaiton.maxFrame > 0)
 	{
@@ -207,23 +230,35 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 
 	p_dcContext->IASetInputLayout(p_pVertexInput);
 
-	p_dcContext->IASetPrimitiveTopology(p_Topology);
+	p_dcContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//setting the renderstate
-	for (unsigned int i = 0; i < numRaster; i++)
+	//for (unsigned int i = 0; i < numRaster; i++)
+	//{
+	//	p_dcContext->RSSetState(p_rasterArray[i]);
+	//
+	//	if (m_nMaxIndices > 0)
+	//	{
+	//		p_dcContext->DrawIndexed(m_nMaxIndices, 0, 0);
+	//	}
+	//	else
+	//	{
+	//		p_dcContext->Draw(m_nMaxVerts, 0);
+	//	}
+	//}
+
+	//if (numRaster < 1)
+	//{
+
+	if (m_nMaxIndices > 0)
 	{
-		p_dcContext->RSSetState(p_rasterArray[i]);
-
-		if (m_nMaxIndices > 0)
-		{
-			p_dcContext->DrawIndexed(m_nMaxIndices, 0, 0);
-		}
-		else
-		{
-			p_dcContext->Draw(m_nMaxVerts, 0);
-		}
+		p_dcContext->DrawIndexed(m_nMaxIndices, 0, 0);
 	}
-
+	else
+	{
+		p_dcContext->Draw(m_nMaxVerts, 0);
+	}
+	//}
 }
 
 void Model::UpdateAnimation(ID3D11DeviceContext* p_dcContext, float p_delta)
@@ -294,4 +329,8 @@ Model::~Model()
 		m_pSamplerState->Release();
 	}
 
+	if (m_vsInput)
+	{
+		delete[] m_vsInput;
+	}
 }
