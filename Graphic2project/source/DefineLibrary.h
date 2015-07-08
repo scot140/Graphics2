@@ -9,7 +9,26 @@
 #define RASTER_NUMPIXEL (RASTER_WIDTH * RASTER_HEIGHT)
 
 
-#define _USE_MATH_DEFINES
-#include <math.h>
-#include "Matrix.h"
-#include "Vertex.h"
+
+#include <d3d11.h>
+#pragma comment(lib, "d3d11.lib")
+
+struct Object
+{
+	XMFLOAT4X4 m_mxConstMatrix;
+};
+
+struct Scene
+{
+	XMFLOAT4X4 matrix_sceneCamera;
+	XMFLOAT4X4 matrix_Projection;
+};
+
+struct ANIMATION
+{
+	float frame = 0;
+	float maxFrame = 0;
+	float width;
+	float padding;
+};
+

@@ -5,16 +5,9 @@ class Vertex;
 class Matrix
 {
 
-	struct TMatrix3x3
-	{
-		float matrix[3][3];
-	};
 
-	TMatrix3x3 GetMatrix3x3();
+	XMFLOAT3X3 GetMatrix3x3();
 
-	void MultiplyVertexByMatrix(Vertex& vertex, Matrix::TMatrix3x3 matrix);
-
-	void MatrixInvertHelper();
 public:
 
 	Matrix();

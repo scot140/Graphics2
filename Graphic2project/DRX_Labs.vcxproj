@@ -168,18 +168,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\main.cpp" />
-    <ClCompile Include="source\Matrix.cpp" />
-    <ClCompile Include="source\Vertex.cpp" />
+    <ClCompile Include="source\Model.cpp" />
     <ClCompile Include="source\XTime.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\Cube.h" />
     <ClInclude Include="source\DefineLibrary.h" />
     <ClInclude Include="source\DirectX_Helpers.h" />
-    <ClInclude Include="source\MathHelper.h" />
-    <ClInclude Include="source\Matrix.h" />
+    <ClInclude Include="source\Model.h" />
     <ClInclude Include="source\numbers_test.h" />
-    <ClInclude Include="source\Vertex.h" />
     <ClInclude Include="source\XTime.h" />
   </ItemGroup>
   <ItemGroup>

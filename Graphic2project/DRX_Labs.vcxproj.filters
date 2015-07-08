@@ -24,18 +24,12 @@
     <ClCompile Include="source\XTime.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="source\Vertex.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Matrix.cpp">
+    <ClCompile Include="source\Model.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\XTime.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\MathHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\DefineLibrary.h">
@@ -47,13 +41,10 @@
     <ClInclude Include="source\numbers_test.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\Vertex.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\Matrix.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="source\DirectX_Helpers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Model.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

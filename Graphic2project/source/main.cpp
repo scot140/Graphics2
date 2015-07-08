@@ -17,23 +17,20 @@
 #include <ctime>
 #include "XTime.h"
 #include <Windows.h>
-#include <DirectXMath.h>
-#include <vector>
-#include "MathHelper.h"
+#include "Model.h"
 #include "Cube.h"
 #include "numbers_test.h"
 //#include <atlbase.h>
 
 using namespace std;
-using namespace DirectX;
+
 
 // BEGIN PART 1
 // TODO: PART 1 STEP 1a
 //#include <d3d11.h>
 //#pragma comment(lib, "d3d11.lib")
-#include "DirectX_Helpers.h"
 // TODO: PART 1 STEP 1b
-
+#include "DirectX_Helpers.h"
 // TODO: PART 2 STEP 6
 #include "../VertexShader.csh"
 #include "../PixelShader.csh"
@@ -85,47 +82,28 @@ class DEMO_APP
 	ID3D11VertexShader* m_shaderVS;
 	// BEGIN PART 3
 	// TODO: PART 3 STEP 1
-	ID3D11Buffer** m_ConstantBuffer;
 
-	vector<ID3D11Buffer*> GeometryContainer;
 
 	//index buffer
-	ID3D11Buffer* IndexBuffer;
-	ID3D11Buffer* dexBuffer;
+
 	//depth perspective
 	ID3D11Texture2D* m_ZBuffer;
 	ID3D11DepthStencilView* m_DepthView;
 	ID3D11DepthStencilState * m_pDepthState;
-	ID3D11SamplerState* SamplerState;
 
-	//Image
-	ID3D11Texture2D* m_ImageTexture;
-	ID3D11ShaderResourceView* m_ShaderResource;
+
 
 	//Blending
 	ID3D11BlendState* m_pBlendState;
 	ID3D11RasterizerState* m_pRasterStateFrontCull;
 
 	// TODO: PART 3 STEP 2b
-	struct Object
-	{
-		Matrix matrix_objectWorld;
-	};
-
-	struct Scene
-	{
-		Matrix matrix_sceneCamera;
-		Matrix matrix_Projection;
-	};
+	
 
 	// TODO: PART 3 STEP 4a
-	Matrix m_mxViewMatrix;
-	Matrix m_mxWorldMatrix;
-	Matrix m_mxProjectionMatrix;
 
 	//camera
-	Matrix CameraRotationMatrix;
-	Matrix CameraTranslationMatrix;
+
 
 	int CameraUpDown;
 
@@ -133,13 +111,6 @@ class DEMO_APP
 
 	void MouseMovement(bool& move, float dt);
 
-	struct ANIMATION
-	{
-		float frame = 0;
-		float maxFrame = 0;
-		float width;
-		float padding;
-	};
 
 	ANIMATION animate;
 	float delta = 0;
@@ -155,24 +126,16 @@ public:
 	// BEGIN PART 2
 	// TODO: PART 2 STEP 1
 
-	Object m_objObject;
-	Scene m_scnMatrices;
-
-	Object m_Grid;
-	Scene m_GridScene;
-
 	unsigned int maxVerts = 0;
 
 	unsigned int maxIndices = 0;
 	unsigned int maxGridIndices = 0;
 
-	Vertex Cube[776];
-	Vertex Star[22];
-	Vertex m_vtGrid_Verts[86];
+	XMFLOAT4 Cube[776];
+	XMFLOAT4 Star[22];
+	XMFLOAT4 m_vtGrid_Verts[86];
 
 	DEMO_APP(HINSTANCE hinst, WNDPROC proc);
-	void SetConstantBuffer(ID3D11Buffer* buffer, D3D11_MAP map, Object _struct, unsigned int start = 0, unsigned int max = 1);
-	void Drawing(ID3D11Buffer* buffer, ID3D11InputLayout* layout, ID3D11VertexShader* VS_Shader, ID3D11PixelShader* PS_Shader, D3D_PRIMITIVE_TOPOLOGY topology, int MaxVerts, unsigned int startBuffer = 0, unsigned int maxBuffer = 1);
 	int DistanceFormula(POINT LH, POINT RH);
 	bool Run();
 	bool ShutDown();
@@ -186,6 +149,7 @@ public:
 DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 {
 
+#pragma region Beginning Initialization
 	// ****************** BEGIN WARNING ***********************// 
 	// WINDOWS CODE, I DON'T TEACH THIS YOU MUST KNOW IT ALREADY! 
 
@@ -214,7 +178,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	ShowWindow(window, SW_SHOW);
 	//********************* END WARNING ************************//
-
+#pragma endregion 
 
 	//const D3D_FEATURE_LEVEL Feature = D3D_FEATURE_LEVEL_10_0;
 
@@ -238,7 +202,6 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 
 	//setting the buffer
-	m_ConstantBuffer = new ID3D11Buffer*[3];
 
 	// TODO: PART 1 STEP 4
 	hr = m_snSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)(&m_pBackBuffer));
@@ -248,27 +211,8 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	// TODO: PART 1 STEP 5
 	hr = m_snSwapChain->GetDesc(&m_scDesc);
 
-	m_mxWorldMatrix.TranslateMatrix(0.0f, 0.0f, 3.0f);
 
-#pragma region Camera
 
-	//Making a translation matrix
-	CameraTranslationMatrix.TranslateMatrix(0.0f, 0.0f, 0.0f);
-	///Making the Rotation
-	CameraRotationMatrix.MakeThisIdentity();
-	//multiplying the translation on to the rotation
-	m_mxViewMatrix = CameraRotationMatrix * CameraTranslationMatrix;
-	//inversing the the viewMatrix
-	// whether or not the camera is going up or down;
-	CameraUpDown = false;
-
-#pragma endregion
-
-#pragma region Setting the Depth Projection
-
-	m_mxProjectionMatrix = CreateProjectionMatrix();
-
-#pragma endregion
 
 #pragma region Depth Creation
 
@@ -346,312 +290,11 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	m_vpViewPort.Width = (float)m_scDesc.BufferDesc.Width;
 	m_vpViewPort.MaxDepth = 1;
 	m_vpViewPort.MinDepth = 0;
+
 	//Setting up the shaders
 	m_iDevice->CreatePixelShader(PixelShader, sizeof(PixelShader), NULL, &m_shaderPS);
 	m_iDevice->CreateVertexShader(VertexShader, sizeof(VertexShader), NULL, &m_shaderVS);
 
-#pragma region Create Cube
-	//Create the geometry here
-	ID3D11Buffer* StarBuffer;
-	maxVerts = _countof(Cube_data);
-
-	for (unsigned int i = 0; i < maxVerts; i++)
-	{
-		for (int posIndex = 0; posIndex < 3; posIndex++)
-		{
-			Cube[i].position[posIndex] = Cube_data[i].pos[posIndex];
-
-			if (posIndex == 2)
-			{
-				Cube[i].w = 1;
-				Cube[i].Setcolor(1, Cube_data[i].uvw[1], Cube_data[i].uvw[0], 0);
-			}
-		}
-	}
-
-	for (unsigned int i = 0; i < maxVerts; i++)
-	{
-		for (int posIndex = 0; posIndex < 2; posIndex++)
-		{
-			Cube[i].uv[posIndex] = Cube_data[i].uvw[posIndex];
-		}
-	}
-
-	//// TODO: PART 2 STEP 3b
-	D3D11_BUFFER_DESC BufferDesc;
-	BufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
-	BufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	BufferDesc.CPUAccessFlags = NULL;
-	BufferDesc.ByteWidth = sizeof(Vertex) * maxVerts;
-	BufferDesc.MiscFlags = 0;
-
-	//// TODO: PART 2 STEP 3c
-	D3D11_SUBRESOURCE_DATA InitData;
-	InitData.pSysMem = Cube;
-	InitData.SysMemPitch = 0;
-	InitData.SysMemSlicePitch = 0;
-	// TODO: PART 2 STEP 3d
-	m_iDevice->CreateBuffer(&BufferDesc, &InitData, &StarBuffer);
-
-	animate.frame = 0;
-	animate.maxFrame = 4;
-	animate.width = numbers_test_width;
-
-	GeometryContainer.push_back(StarBuffer);
-#pragma endregion
-
-#pragma region IndexBuffer
-	maxIndices = _countof(Cube_indicies);
-
-	D3D11_BUFFER_DESC IndexBufferDesc;
-	IndexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
-	IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	IndexBufferDesc.CPUAccessFlags = NULL;
-	IndexBufferDesc.ByteWidth = sizeof(unsigned int)*maxIndices;
-	IndexBufferDesc.MiscFlags = 0;
-
-	//// TODO: PART 2 STEP 3c
-	D3D11_SUBRESOURCE_DATA InitIndexData;
-	InitIndexData.pSysMem = Cube_indicies;
-	InitIndexData.SysMemPitch = 0;
-	InitIndexData.SysMemSlicePitch = 0;
-	m_iDevice->CreateBuffer(&IndexBufferDesc, &InitIndexData, &IndexBuffer);
-
-#pragma endregion
-
-#pragma region //Star
-
-	ID3D11Buffer* Buffer;
-
-	//white
-	Star[0].x = 0;
-	Star[0].y = 0;
-	Star[0].z = 0;
-	Star[0].w = 1;
-	Star[0].Setcolor(1, 1, 1, 1);
-	//red
-	Star[1].x = 0;
-	Star[1].y = 1;
-	Star[1].z = 0;
-	Star[1].w = 1;
-	Star[1].Setcolor(1, 1, 0, 0);
-	//red
-	Star[2].x = 0.3f;
-	Star[2].y = 0.3f;
-	Star[2].z = 0;
-	Star[2].w = 1;
-	Star[2].Setcolor(1, 1, 0, 0);
-	//blue
-	Star[3].x = 0.7f;
-	Star[3].y = 0.3f;
-	Star[3].z = 0;
-	Star[3].w = 1;
-	Star[3].Setcolor(1, 0, 0, 1);
-	//blue
-	Star[4].x = 0.4f;
-	Star[4].y = -0.2f;
-	Star[4].z = 0;
-	Star[4].w = 1;
-	Star[4].Setcolor(1, 0, 0, 1);
-	//green
-	Star[5].x = 0.4f;
-	Star[5].y = -0.7f;
-	Star[5].z = 0;
-	Star[5].w = 1;
-	Star[5].Setcolor(1, 0, 1, 0);
-	//green
-	Star[6].x = 0;
-	Star[6].y = -0.4f;
-	Star[6].z = 0;
-	Star[6].w = 1;
-	Star[6].Setcolor(1, 0, 1, 0);
-	//yellow
-	Star[7].x = -0.4f;
-	Star[7].y = -0.7f;
-	Star[7].z = 0;
-	Star[7].w = 1;
-	Star[7].Setcolor(1, 1, 1, 0);
-	//yellow
-	Star[8].x = -0.4f;
-	Star[8].y = -0.2f;
-	Star[8].z = 0;
-	Star[8].w = 1;
-	Star[8].Setcolor(1, 1, 1, 0);
-	//cyan
-	Star[9].x = -0.7f;
-	Star[9].y = 0.3f;
-	Star[9].z = 0;
-	Star[9].w = 1;
-	Star[9].Setcolor(1, 0, 1, 1);
-	//cyan
-	Star[10].x = -0.3f;
-	Star[10].y = 0.3f;
-	Star[10].z = 0;
-	Star[10].w = 1;
-	Star[10].Setcolor(1, 0, 1, 1);
-	//white
-	Star[11].x = 0;
-	Star[11].y = 0;
-	Star[11].z = 0.5f;
-	Star[11].w = 1;
-	Star[11].Setcolor(1, 1, 1, 1);
-	//red
-	Star[12].x = 0;
-	Star[12].y = 1;
-	Star[12].z = 0.5f;
-	Star[12].w = 1;
-	Star[12].Setcolor(1, 1, 0, 0);
-	//cyan
-	Star[13].x = -0.3f;
-	Star[13].y = 0.3f;
-	Star[13].z = 0.5f;
-	Star[13].w = 1;
-	Star[13].Setcolor(1, 0, 1, 1);
-	//cyan
-	Star[14].x = -0.7f;
-	Star[14].y = 0.3f;
-	Star[14].z = 0.5f;
-	Star[14].w = 1;
-	Star[14].Setcolor(1, 0, 1, 1);
-	//yelloe
-	Star[15].x = -0.4f;
-	Star[15].y = -0.2f;
-	Star[15].z = 0.5f;
-	Star[15].w = 1;
-	Star[15].Setcolor(1, 1, 1, 0);
-	//yellow
-	Star[16].x = -0.4f;
-	Star[16].y = -0.7f;
-	Star[16].z = 0.5f;
-	Star[16].w = 1;
-	Star[16].Setcolor(1, 1, 1, 0);
-	//green
-	Star[17].x = 0;
-	Star[17].y = -0.4f;
-	Star[17].z = 0.5f;
-	Star[17].w = 1;
-	Star[17].Setcolor(1, 0, 1, 0);
-	//green
-	Star[18].x = 0.4f;
-	Star[18].y = -0.7f;
-	Star[18].z = 0.5f;
-	Star[18].w = 1;
-	Star[18].Setcolor(1, 0, 1, 0);
-	//wblue
-	Star[19].x = 0.4f;
-	Star[19].y = -0.2f;
-	Star[19].z = 0.5f;
-	Star[19].w = 1;
-	Star[19].Setcolor(1, 0, 0, 1);
-	//blue
-	Star[20].x = 0.7f;
-	Star[20].y = 0.3f;
-	Star[20].z = 0.5f;
-	Star[20].w = 1;
-	Star[20].Setcolor(1, 0, 0, 1);
-	//red
-	Star[21].x = 0.3f;
-	Star[21].y = 0.3f;
-	Star[21].z = 0.5f;
-	Star[21].w = 1;
-	Star[21].Setcolor(1, 1, 0, 0);
-
-
-#pragma endregion
-
-	//// TODO: PART 2 STEP 3b
-	D3D11_BUFFER_DESC Desc;
-	Desc.Usage = D3D11_USAGE_IMMUTABLE;
-	Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	Desc.CPUAccessFlags = NULL;
-	Desc.ByteWidth = sizeof(Vertex) * 22;
-	Desc.MiscFlags = 0;
-
-	//// TODO: PART 2 STEP 3c
-	D3D11_SUBRESOURCE_DATA Data;
-	Data.pSysMem = Star;
-	Data.SysMemPitch = 0;
-	Data.SysMemSlicePitch = 0;
-	// TODO: PART 2 STEP 3d
-	m_iDevice->CreateBuffer(&Desc, &Data, &Buffer);
-
-	GeometryContainer.push_back(Buffer);
-
-#pragma region IndexBuffer
-	unsigned int maxIndex = 120;
-	maxGridIndices = maxIndex;
-	unsigned int index[120] =
-	{
-		//front
-		0, 1, 2,
-		0, 2, 3,
-		0, 3, 4,
-		0, 4, 5,
-		0, 5, 6,
-		0, 6, 7,
-		0, 7, 8,
-		0, 8, 9,
-		0, 9, 10,
-		0, 10, 1,
-		//back
-		11, 12, 13,
-		11, 13, 14,
-		11, 14, 15,
-		11, 15, 16,
-		11, 16, 17,
-		11, 17, 18,
-		11, 18, 19,
-		11, 19, 20,
-		11, 20, 21,
-		11, 21, 12,
-		//sides
-		//top
-		1, 12, 2,
-		12, 21, 2,
-		12, 1, 13,
-		1, 10, 13,
-		//left upper
-		2, 21, 3,
-		21, 20, 3,
-		// right upper
-		13, 10, 14,
-		10, 9, 14,
-		//B_Right upper
-		14, 9, 15,
-		9, 8, 15,
-		//B_Left upper
-		3, 20, 4,
-		20, 19, 4,
-
-		//Left bottom
-		4, 19, 5,
-		19, 18, 5,
-		//Right bottom
-		15, 8, 7,
-		16, 15, 7,
-		//B_right bottom
-		6, 17, 16,
-		7, 6, 16,
-		//B_left bottom
-		17, 6, 5,
-		17, 5, 18,
-	};
-
-	D3D11_BUFFER_DESC IndexDesc;
-	IndexDesc.Usage = D3D11_USAGE_IMMUTABLE;
-	IndexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	IndexDesc.CPUAccessFlags = NULL;
-	IndexDesc.ByteWidth = sizeof(unsigned int)*maxIndex;
-	IndexDesc.MiscFlags = 0;
-
-	//// TODO: PART 2 STEP 3c
-	D3D11_SUBRESOURCE_DATA IndexData;
-	IndexData.pSysMem = index;
-	IndexData.SysMemPitch = 0;
-	IndexData.SysMemSlicePitch = 0;
-	m_iDevice->CreateBuffer(&IndexDesc, &IndexData, &dexBuffer);
-
-#pragma endregion
 
 	// TODO: PART 2 STEP 8a
 	D3D11_INPUT_ELEMENT_DESC element[] =
@@ -663,104 +306,11 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	hr = m_iDevice->CreateInputLayout(element, 3, VertexShader, sizeof(VertexShader), &m_pVertexInput);
 
 	// setting the Constant variables
-	m_objObject.matrix_objectWorld = m_mxWorldMatrix;
-	m_Grid.matrix_objectWorld = m_mxWorldMatrix;
-	m_Grid.matrix_objectWorld.SetTranslate(0, 3, 3);
-
-#pragma region TextureResource
-
-	//Filtering
-	D3D11_SAMPLER_DESC SamplerDesc;
-	SamplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-	SamplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-	SamplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-	SamplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-	SamplerDesc.MinLOD = -FLT_MAX;
-	SamplerDesc.MaxLOD = FLT_MAX;
-	SamplerDesc.MipLODBias = 0.0f;
-	SamplerDesc.MaxAnisotropy = 1;
-	SamplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-	SamplerDesc.BorderColor[0] = 1.0f;
-	SamplerDesc.BorderColor[1] = 1.0f;
-	SamplerDesc.BorderColor[2] = 1.0f;
-	SamplerDesc.BorderColor[3] = 1.0f;
-
-	m_iDevice->CreateSamplerState(&SamplerDesc, &SamplerState);
-
-	//Texture2D Setup
-	length = (numbers_test_width / 4);
-	D3D11_TEXTURE2D_DESC TextureDesc;
-	//zero-ing it out
-	ZeroMemory(&TextureDesc, sizeof(TextureDesc));
-
-	TextureDesc.Width = numbers_test_width;
-	TextureDesc.Height = numbers_test_height;
-	TextureDesc.MipLevels = numbers_test_numlevels;
-	TextureDesc.ArraySize = 1;
-	TextureDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	TextureDesc.SampleDesc.Count = 1;
-	TextureDesc.SampleDesc.Quality = 0;
-
-	// subresource set up
-	D3D11_SUBRESOURCE_DATA * numbers_test = new D3D11_SUBRESOURCE_DATA[9];
-	ZeroMemory(numbers_test, sizeof(D3D11_SUBRESOURCE_DATA) * 9);
-
-
-	for (int i = 0; i < numbers_test_numlevels; i++)
-	{
-		numbers_test[i].pSysMem = &numbers_test_pixels[numbers_test_leveloffsets[i]];
-		numbers_test[i].SysMemPitch = (numbers_test_width >> i) * 4;
-		numbers_test[i].SysMemSlicePitch = 0;
-	}
-
-	hr = m_iDevice->CreateTexture2D(&TextureDesc, numbers_test, &m_ImageTexture);
-	delete[] numbers_test;
-
-	D3D11_SHADER_RESOURCE_VIEW_DESC ShaderResourceView_Desc;
-	ZeroMemory(&ShaderResourceView_Desc, sizeof(ShaderResourceView_Desc));
-	ShaderResourceView_Desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	ShaderResourceView_Desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	ShaderResourceView_Desc.Texture2D.MipLevels = TextureDesc.MipLevels;
-	ShaderResourceView_Desc.Texture2D.MostDetailedMip = 0;
-
-	m_iDevice->CreateShaderResourceView(m_ImageTexture, &ShaderResourceView_Desc, &m_ShaderResource);
-
-#pragma endregion
-
-	// TODO: PART 3 STEP 3
-	D3D11_BUFFER_DESC cBufferDesc;
-	cBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	cBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	cBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	cBufferDesc.ByteWidth = sizeof(Object);
-	cBufferDesc.MiscFlags = 0;
-
-	//subData
-	D3D11_SUBRESOURCE_DATA ConstantBufferData;
-	ConstantBufferData.pSysMem = &m_objObject;
-	ConstantBufferData.SysMemPitch = 0;
-	ConstantBufferData.SysMemSlicePitch = 0;
-
-	hr = m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_ConstantBuffer[OBJECT]);
 
 	//\//scene Vshader connnection
-	m_scnMatrices.matrix_Projection = m_mxProjectionMatrix;
-	Matrix m_mxCopyView;
-	m_mxCopyView = m_mxViewMatrix;
-	m_mxCopyView.InverseOrthogonalAffinedMatrix();
-	m_scnMatrices.matrix_sceneCamera = m_mxViewMatrix;
+
 
 	//setting the width of each scene
-	cBufferDesc.ByteWidth = sizeof(Scene);
-	ConstantBufferData.pSysMem = &m_scnMatrices;
-
-	hr = m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_ConstantBuffer[SCENE]);
-
-	cBufferDesc.ByteWidth = sizeof(ANIMATION);
-	ConstantBufferData.pSysMem = &animate;
-
-	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_ConstantBuffer[TIMER]);
 
 	g_DepthView = m_DepthView;
 	g_ZBuffer = m_ZBuffer;
@@ -795,15 +345,11 @@ bool DEMO_APP::Run()
 	//Binding the depthState/ depthBuffer
 	m_dcConext->OMSetDepthStencilState(m_pDepthState, 1);
 
-	m_dcConext->PSSetShaderResources(0, 1, &m_ShaderResource);
 	//Binding the RendertTarget
 	m_dcConext->OMSetRenderTargets(1, &m_rtvRenderTargetView, m_DepthView);
 
 	//binding the viewports
 	m_dcConext->RSSetViewports(1, &m_vpViewPort);
-
-	//setting the sampler
-	m_dcConext->PSSetSamplers(0, 1, &SamplerState);
 
 	// clearing the screen to that color
 	float color[4];
@@ -819,6 +365,7 @@ bool DEMO_APP::Run()
 #pragma region InputChecker 
 
 	bool moved = false;
+
 	if (GetAsyncKeyState('W'))
 	{
 		CameraZ += (float)dt.Delta();
@@ -841,44 +388,6 @@ bool DEMO_APP::Run()
 		moved = true;
 	}
 
-	if (GetAsyncKeyState(VK_NUMPAD4))
-	{
-		CameraRotationMatrix = CameraRotationMatrix * RotationMatrixOnY_Axis(DegreesToRadians(1 * (float)dt.Delta()));
-		moved = true;
-	}
-	else if (GetAsyncKeyState(VK_NUMPAD6))
-	{
-		CameraRotationMatrix = CameraRotationMatrix * RotationMatrixOnY_Axis(DegreesToRadians(-1 * (float)dt.Delta()));
-		moved = true;
-	}
-
-	if (GetAsyncKeyState(VK_NUMPAD8))
-	{
-		CameraRotationMatrix = CameraRotationMatrix * RotationMatrixOnX_Axis(DegreesToRadians(1 * (float)dt.Delta()));
-		moved = true;
-	}
-	else if (GetAsyncKeyState(VK_NUMPAD2))
-	{
-		CameraRotationMatrix = CameraRotationMatrix * RotationMatrixOnX_Axis(DegreesToRadians(-1 * (float)dt.Delta()));
-		moved = true;
-	}
-
-	//if (GetAsyncKeyState(VK_LBUTTON) && LbuttonDown == true)
-	//{
-	//	GetCursorPos(&startPoint);
-	//	ScreenToClient(window, &startPoint);
-	//	CurrentPoint = startPoint;
-	//	LbuttonDown = false;
-	//}
-	//else if (GetAsyncKeyState(VK_LBUTTON))
-	//{
-	//	MouseMovement(moved, (float)dt.Delta());
-	//}
-	//if ((GetKeyState(VK_LBUTTON) & 0x80) == 0)
-	//{
-	//	LbuttonDown = true;
-	//}
-
 	if (GetAsyncKeyState(VK_LSHIFT))
 	{
 		CameraY -= (float)dt.Delta();
@@ -890,186 +399,13 @@ bool DEMO_APP::Run()
 		moved = true;
 	}
 
-	if ((GetAsyncKeyState(VK_MENU) && GetAsyncKeyState(VK_RETURN)) & 0x1)
-	{
 
-	}
-
-	//if ((GetKeyState(VK_LBUTTON) & 0x100) != 0)
-	//{
-	//	MouseMovement(moved, (float)dt.Delta());
-
-	//}
-
-	if (moved == false)
-	{
-		CameraRotationMatrix.MakeThisIdentity();
-	}
-
-	if (moved)
-	{
-
-		m_mxViewMatrix.SetTranslate(0, 0, 0);
-
-		m_mxViewMatrix = m_mxViewMatrix * CameraRotationMatrix;
-
-		m_mxViewMatrix.SetTranslate(CameraX, CameraY, CameraZ);
-
-		Matrix m_mxCopyView = m_mxViewMatrix;
-
-		m_mxCopyView.InverseOrthogonalAffinedMatrix();
-
-		m_scnMatrices.matrix_sceneCamera = m_mxCopyView;
-
-
-	}
 
 #pragma endregion
-
-
-#pragma region Animation
-
-	D3D11_MAPPED_SUBRESOURCE TimerResource;
-	ZeroMemory(&TimerResource, sizeof(TimerResource));
-
-	m_dcConext->Map(m_ConstantBuffer[TIMER], 0, D3D11_MAP_WRITE_DISCARD, NULL, &TimerResource);
-
-#pragma region FrameUpdate
-
-	delta += (float)dt.Delta();
-
-	if (delta >= 1)
-	{
-		animate.frame++;
-
-		if (animate.maxFrame <= animate.frame)
-		{
-			animate.frame = 0;
-		}
-
-		delta = 0;
-	}
-
-#pragma endregion
-
-	memcpy(TimerResource.pData, &animate, sizeof(animate));
-
-	m_dcConext->Unmap(m_ConstantBuffer[TIMER], 0);
-
-#pragma endregion
-
-
-#pragma region Cube
-	//Constant buffer manipulation
-	D3D11_MAPPED_SUBRESOURCE mapResource;
-
-	//\// World Matrix
-	m_dcConext->Map(m_ConstantBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &mapResource);
-
-
-	Matrix YRotation;
-	YRotation.MakeThisIdentity();
-	YRotation = RotationMatrixOnY_Axis((float)dt.Delta() / 2);
-
-	Matrix XRotation;
-	XRotation.MakeThisIdentity();
-	XRotation = RotationMatrixOnX_Axis((float)dt.Delta() / 2);
-
-	float translation[3];
-
-	m_objObject.matrix_objectWorld.InverseOrthogonalAffinedMatrix();
-
-	Vertex trans = m_objObject.matrix_objectWorld.GetRow(3);
-
-	translation[0] = trans[0];
-	translation[1] = trans[1];
-	translation[2] = trans[2];
-
-	m_objObject.matrix_objectWorld.SetTranslate(0, 0, 0);
-
-	m_objObject.matrix_objectWorld = m_objObject.matrix_objectWorld * YRotation;
-
-	m_objObject.matrix_objectWorld = XRotation* m_objObject.matrix_objectWorld;
-
-	m_objObject.matrix_objectWorld.InverseOrthogonalAffinedMatrix();
-
-	m_objObject.matrix_objectWorld.SetTranslate(0, 0.5f, 3);
-
-	memcpy(mapResource.pData, &m_objObject, sizeof(m_objObject));
-
-	m_dcConext->Unmap(m_ConstantBuffer[OBJECT], 0);
-
-	D3D11_MAPPED_SUBRESOURCE SceneResource;
-	ZeroMemory(&SceneResource, sizeof(SceneResource));
-
-	m_dcConext->Map(m_ConstantBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &SceneResource);
-
-	memcpy(SceneResource.pData, &m_scnMatrices, sizeof(m_scnMatrices));
-
-	m_dcConext->Unmap(m_ConstantBuffer[SCENE], 0);
-
-#pragma endregion 
-
 
 	m_dcConext->PSSetShader(m_shaderPS, NULL, 0);
 	m_dcConext->VSSetShader(m_shaderVS, NULL, 0);
 
-	m_dcConext->VSSetConstantBuffers(0, 2, m_ConstantBuffer);
-
-	m_dcConext->PSSetConstantBuffers(0, 1, &m_ConstantBuffer[TIMER]);
-
-	// Seeting the vertex buffer/shaders/inputlayout/topology
-	unsigned int stride = sizeof(Vertex);
-	unsigned int zero = 0;
-
-	m_dcConext->IASetVertexBuffers(0, 1, &GeometryContainer[0], &stride, &zero);
-
-	m_dcConext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-
-	m_dcConext->IASetInputLayout(m_pVertexInput);
-
-	m_dcConext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	//setting the renderstate
-	m_dcConext->RSSetState(m_pRasterStateFrontCull);
-	m_dcConext->DrawIndexed(maxIndices, 0, 0);
-
-	//setting the renderstate
-	m_dcConext->RSSetState(m_pRasterState);
-	m_dcConext->DrawIndexed(maxIndices, 0, 0);
-#pragma region Star
-	D3D11_MAPPED_SUBRESOURCE GridmapResource;
-	//\// World Matrix
-	m_dcConext->Map(m_ConstantBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &GridmapResource);
-
-	Matrix temp = m_Grid.matrix_objectWorld;
-
-	m_Grid.matrix_objectWorld = YRotation * temp;
-
-	memcpy(GridmapResource.pData, &m_Grid, sizeof(m_Grid));
-
-	m_dcConext->Unmap(m_ConstantBuffer[OBJECT], 0);
-
-#pragma endregion 
-
-#pragma region Drawing the Grid
-	//Constant buffer manipulation
-	m_dcConext->VSSetConstantBuffers(0, 2, m_ConstantBuffer);
-	// drawing
-	m_dcConext->IASetVertexBuffers(0, 1, &GeometryContainer[1], &stride, &zero);
-
-	m_dcConext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	m_dcConext->IASetIndexBuffer(dexBuffer, DXGI_FORMAT_R32_UINT, 0);
-
-	//setting the renderstate
-	m_dcConext->RSSetState(m_pRasterStateFrontCull);
-	m_dcConext->DrawIndexed(maxGridIndices, 0, 0);
-
-	//setting the renderstate
-	m_dcConext->RSSetState(m_pRasterState);
-	m_dcConext->DrawIndexed(maxGridIndices, 0, 0);
-
-#pragma endregion
 	//Swaping the back buffer info with the front buffer
 	m_snSwapChain->Present(1, 0);
 	// END OF PART 1
@@ -1078,52 +414,7 @@ bool DEMO_APP::Run()
 
 void DEMO_APP::MouseMovement(bool& move, float dt)
 {
-	RECT WinRect;
 
-	GetCursorPos(&CurrentPoint);
-	ScreenToClient(window, &CurrentPoint);
-
-	GetClientRect(window, &WinRect);
-
-	if (WinRect.left > CurrentPoint.x || WinRect.right < CurrentPoint.x || WinRect.top > CurrentPoint.y || WinRect.bottom < CurrentPoint.y)
-	{
-		return;
-	}
-
-
-	if (DistanceFormula(startPoint, CurrentPoint) < 10)
-	{
-		return;
-	}
-
-	move = true;
-
-	TSize Screen;
-	Screen.m_nHeight = WinRect.bottom;
-	Screen.m_nWidth = WinRect.right;
-
-	TFPoint rotation;
-	rotation.x = float(CurrentPoint.x - startPoint.x);
-
-	rotation.y = float(CurrentPoint.y - startPoint.y);
-
-	if (rotation.x > 0)
-	{
-		CameraRotationMatrix = CameraRotationMatrix * RotationMatrixOnY_Axis(DegreesToRadians((float)(1 * dt)));
-	}
-	else if (rotation.x < 0)
-	{
-		CameraRotationMatrix = CameraRotationMatrix * RotationMatrixOnY_Axis(DegreesToRadians((float)(-1 * dt)));
-	}
-
-	if (rotation.y > 0)
-	{
-		CameraRotationMatrix = CameraRotationMatrix * RotationMatrixOnX_Axis(DegreesToRadians((float)(1 * dt)));
-	}
-	else if (rotation.y < 0)
-	{
-		CameraRotationMatrix = CameraRotationMatrix * RotationMatrixOnX_Axis(DegreesToRadians((float)(-1 * dt)));
-	}
 }
 
 int DEMO_APP::DistanceFormula(POINT LH, POINT RH)
@@ -1157,19 +448,7 @@ bool DEMO_APP::ShutDown()
 	//circle
 	m_pVertexInput->Release();
 
-	for (unsigned int i = 0; i < GeometryContainer.size(); i++)
-	{
-		GeometryContainer[i]->Release();
-	}
 
-	GeometryContainer.clear();
-
-	m_ConstantBuffer[OBJECT]->Release();
-	m_ConstantBuffer[SCENE]->Release();
-	delete[] m_ConstantBuffer;
-
-	IndexBuffer->Release();
-	//IndexBuffer[1]->Release();
 
 	//depth perspective
 	m_ZBuffer->Release();
