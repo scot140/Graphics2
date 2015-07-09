@@ -58,6 +58,9 @@ ID3D11DeviceContext* g_dcConext;
 ID3D11Texture2D* g_pBackBuffer;
 D3D11_VIEWPORT m_vpViewPort;
 
+bool LbuttonDown = false;
+POINT startPoint;
+
 class DEMO_APP
 {
 	HINSTANCE						application;
@@ -95,18 +98,24 @@ class DEMO_APP
 	Scene SceneMatrices;
 
 	//misc
-	int CameraUpDown;
-	float CameraX = 0, CameraY = 0, CameraZ = -1;
-	void MouseMovement(bool& move, float dt);
 
-	POINT startPoint;
-	POINT CurrentPoint;
-	bool LbuttonDown;
+	XMFLOAT4X4 rotation;
+
+
+	void MouseMovement(bool& move, float dt, XMFLOAT4X4* rot);
+
 
 public:
 	Model cube;
+	Model Pyramid;
+	Model Dorumon;
 
 	DEMO_APP(HINSTANCE hinst, WNDPROC proc);
+	void CreateCube();
+	void CreateStar();
+
+	void CreateObj(const char* file, Model& p_model, D3D11_SUBRESOURCE_DATA* p_data = nullptr, D3D11_TEXTURE2D_DESC* p_texture = nullptr, D3D11_SAMPLER_DESC* p_sampler = nullptr);
+	void DrawObj(Model* p_model, ID3D11RasterizerState** raster, unsigned int size, float delta);
 	int DistanceFormula(POINT LH, POINT RH);
 	void WorldCameraProjectionSetup();
 	bool Run();
@@ -289,39 +298,9 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	m_iDevice->CreateInputLayout(element, 3, VertexShader, sizeof(VertexShader), &m_pVertexInput);
 
 	//cube model
-	cube.m_objMatrix.m_mxConstMatrix = m_mxWorldMatrix;
+	CreateCube();
 
-	unsigned int max = _countof(Cube_data);
-
-	XMFLOAT4* positions = new XMFLOAT4[max];
-	XMFLOAT2* uvs = new XMFLOAT2[max];
-
-	for (unsigned int i = 0, posIndex = 0; i < max; i++)
-	{
-
-		positions[i].x = Cube_data[i].pos[posIndex];
-		++posIndex;
-		positions[i].y = Cube_data[i].pos[posIndex];
-		++posIndex;
-		positions[i].z = Cube_data[i].pos[posIndex];
-		posIndex = 0;
-
-		positions[i].w = 1;
-	}
-
-	for (unsigned int i = 0, posIndex = 0; i < max; i++)
-	{
-		uvs[i].x = Cube_data[i].uvw[posIndex];
-		++posIndex;
-
-		uvs[i].y = Cube_data[i].uvw[posIndex];
-		++posIndex;
-
-		posIndex = 0;
-	}
-
-	cube.loadVerts(max, positions, uvs);
-	cube.CreateBuffers(m_iDevice, _countof(Cube_indicies), Cube_indicies, &SceneMatrices);
+	//CreateStar();
 
 	D3D11_SAMPLER_DESC SamplerDesc;
 	DefaultSamplerStateDesc(&SamplerDesc);
@@ -332,13 +311,19 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	D3D11_SUBRESOURCE_DATA Maplevels[numbers_test_numlevels];
 	DefaultTextureSubresource(Maplevels, numbers_test_pixels, numbers_test_leveloffsets, numbers_test_width, numbers_test_numlevels);
 
-	cube.CreateTexture(m_iDevice, &SamplerDesc, &TextureDesc, Maplevels);
-	cube.SetAnimation(4, (float)numbers_test_width);
+	Pyramid.SetAnimation(4, (float)numbers_test_width);
+
+	CreateObj("resource/Models/test pyramid.obj", Pyramid, Maplevels, &TextureDesc, &SamplerDesc);
+
+	XMMATRIX temp = XMMatrixTranslation(0, 2, 0) * XMLoadFloat4x4(&cube.m_objMatrix.m_mxConstMatrix);
+
+	XMStoreFloat4x4(&Pyramid.m_objMatrix.m_mxConstMatrix, temp);
+
+	//CreateObj("resource/Models/Dorumon.obj", Dorumon);
 
 	// setting the Constant variables
 
 	//\//scene Vshader connnection
-
 
 	//setting the width of each scene
 
@@ -352,6 +337,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	g_dcConext = m_dcConext;
 	g_pBackBuffer = m_pBackBuffer;
 #pragma endregion
+
 
 	dt.Restart();
 }
@@ -395,44 +381,68 @@ bool DEMO_APP::Run()
 
 #pragma region InputChecker 
 
+	float CameraX = 0, CameraY = 0, CameraZ = 0;
+
 	bool moved = false;
 
+	XMStoreFloat4x4(&rotation, XMMatrixIdentity());
+
 	if (GetAsyncKeyState('W'))
-	{
-		CameraZ += (float)dt.Delta();
-		moved = true;
-	}
-	else if (GetAsyncKeyState('S'))
 	{
 		CameraZ -= (float)dt.Delta();
 		moved = true;
 	}
+	else if (GetAsyncKeyState('S'))
+	{
+		CameraZ += (float)dt.Delta();
+		moved = true;
+	}
 	else if (GetAsyncKeyState('A'))
 	{
-		CameraX -= (float)dt.Delta();
+		CameraX += (float)dt.Delta();
 
 		moved = true;
 	}
 	else if (GetAsyncKeyState('D'))
 	{
-		CameraX += (float)dt.Delta();
+		CameraX -= (float)dt.Delta();
 		moved = true;
 	}
 
 	if (GetAsyncKeyState(VK_LSHIFT))
 	{
-		CameraY -= (float)dt.Delta();
+		CameraY += (float)dt.Delta();
 		moved = true;
 	}
 	else if (GetAsyncKeyState(VK_SPACE))
 	{
-		CameraY += (float)dt.Delta();
+		CameraY -= (float)dt.Delta();
 		moved = true;
 	}
+
+
+	if (LbuttonDown)
+	{
+		MouseMovement(moved, (float)dt.Delta(), &rotation);
+	}
+
+
 
 	if (moved)
 	{
 		XMMATRIX CopyView = XMLoadFloat4x4(&m_mxViewMatrix);
+
+		XMVECTOR pos = CopyView.r[3];
+
+		CopyView.r[3] = XMVectorSet(0, 0, 0, 0);
+
+		//CopyView = XMMatrixInverse(nullptr, CopyView);
+		CopyView = CopyView * XMLoadFloat4x4(&rotation);
+		//CopyView = XMMatrixInverse(nullptr, CopyView);
+
+		CopyView.r[3] = pos;
+
+		CopyView = CopyView * XMMatrixTranslation(CameraX, CameraY, CameraZ);
 
 		XMStoreFloat4x4(&m_mxViewMatrix, CopyView);
 
@@ -472,10 +482,43 @@ bool DEMO_APP::Run()
 	m_dcConext->VSSetShader(m_shaderVS, NULL, 0);
 
 	ID3D11RasterizerState* rasterArray[2];
-	rasterArray[0] = m_pRasterState;
-	rasterArray[1] = m_pRasterStateFrontCull;
+	rasterArray[0] = m_pRasterStateFrontCull;
+	rasterArray[1] = m_pRasterState;
+	cube.Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, rasterArray, 2, (float)dt.Delta());
 
-	cube.Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, rasterArray, 1, (float)dt.Delta());
+
+
+#pragma region Pyramid constantBuffer
+
+
+	ZeroMemory(&resource, sizeof(resource));
+
+	m_dcConext->Map(Pyramid.m_pConstBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &resource);
+
+	matrix = XMLoadFloat4x4(&Pyramid.m_objMatrix.m_mxConstMatrix);
+
+	matrix = XMMatrixRotationX((float)dt.Delta()) * matrix;
+
+	XMStoreFloat4x4(&Pyramid.m_objMatrix.m_mxConstMatrix, matrix);
+
+	memcpy(resource.pData, &Pyramid.m_objMatrix, sizeof(Pyramid.m_objMatrix));
+
+	m_dcConext->Unmap(Pyramid.m_pConstBuffer[OBJECT], 0);
+
+	//////////////////////////////////////////////////////////////////////
+
+	ZeroMemory(&SceneResource, sizeof(SceneResource));
+
+	m_dcConext->Map(Pyramid.m_pConstBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &SceneResource);
+
+	memcpy(SceneResource.pData, &SceneMatrices, sizeof(SceneMatrices));
+
+	m_dcConext->Unmap(Pyramid.m_pConstBuffer[SCENE], 0);
+
+#pragma endregion
+
+	DrawObj(&Pyramid, rasterArray, 2, (float)dt.Delta());
+
 
 	//Swaping the back buffer info with the front buffer
 	m_snSwapChain->Present(0, 0);
@@ -495,7 +538,7 @@ void DEMO_APP::WorldCameraProjectionSetup()
 
 	XMMATRIX view = XMMatrixIdentity();
 	//for the Look At Function
-	XMVECTOR pos = XMLoadFloat3(&XMFLOAT3(CameraX, CameraY, CameraZ));
+	XMVECTOR pos = XMLoadFloat3(&XMFLOAT3(0, 0, -1));
 	XMVECTOR focus = XMLoadFloat3(&XMFLOAT3(0, 0, 0));
 	XMVECTOR height = XMLoadFloat3(&XMFLOAT3(0, 1, 0));
 	//Creating the Camera
@@ -514,9 +557,43 @@ void DEMO_APP::WorldCameraProjectionSetup()
 	SceneMatrices.matrix_Projection = m_mxProjectonMatrix;
 }
 
-void DEMO_APP::MouseMovement(bool& move, float dt)
+void DEMO_APP::MouseMovement(bool& move, float dt, XMFLOAT4X4* rot)
 {
+	ScreenToClient(window, &startPoint);
 
+	POINT CurrentPoint;
+	GetCursorPos(&CurrentPoint);
+	ScreenToClient(window, &CurrentPoint);
+
+	POINT distance;
+	distance.x = 0;
+	distance.y = 0;
+
+	if (startPoint.x + 30 < CurrentPoint.x)
+	{
+		distance.x = CurrentPoint.x - startPoint.x;
+	}
+
+	if (startPoint.y + 30 < CurrentPoint.y)
+	{
+		distance.y = CurrentPoint.y - startPoint.y;
+	}
+
+	XMMATRIX CameraRotate = XMLoadFloat4x4(rot);
+
+	if (fabsf((float)distance.x) > fabsf((float)distance.y))
+	{
+		CameraRotate = CameraRotate * XMMatrixRotationY(XMConvertToRadians((float)distance.x)*dt);
+	}
+	if (fabsf((float)distance.x) < fabsf((float)distance.y))
+	{
+		CameraRotate = XMMatrixRotationX(XMConvertToRadians((float)distance.y)*dt) * CameraRotate;
+	}
+
+	XMStoreFloat4x4(rot, CameraRotate);
+
+	move = true;
+	startPoint = CurrentPoint;
 }
 
 int DEMO_APP::DistanceFormula(POINT LH, POINT RH)
@@ -530,6 +607,96 @@ int DEMO_APP::DistanceFormula(POINT LH, POINT RH)
 
 	x = (int)sqrt(x);
 	return x;
+}
+
+void DEMO_APP::CreateCube()
+{
+	//cube model
+	cube.m_objMatrix.m_mxConstMatrix = m_mxWorldMatrix;
+
+	unsigned int max = _countof(Cube_data);
+
+	XMFLOAT4* positions = new XMFLOAT4[max];
+	XMFLOAT2* uvs = new XMFLOAT2[max];
+
+	for (unsigned int i = 0, posIndex = 0; i < max; i++)
+	{
+
+		positions[i].x = Cube_data[i].pos[posIndex];
+		++posIndex;
+		positions[i].y = Cube_data[i].pos[posIndex];
+		++posIndex;
+		positions[i].z = Cube_data[i].pos[posIndex];
+		posIndex = 0;
+
+		positions[i].w = 1;
+	}
+
+
+	for (unsigned int i = 0, posIndex = 0; i < max; i++)
+	{
+		uvs[i].x = Cube_data[i].uvw[posIndex];
+		++posIndex;
+
+		uvs[i].y = Cube_data[i].uvw[posIndex];
+		++posIndex;
+
+		posIndex = 0;
+	}
+
+
+	cube.loadVerts(max, positions, uvs);
+	cube.CreateBuffers(m_iDevice, _countof(Cube_indicies), Cube_indicies, &SceneMatrices);
+
+	D3D11_SAMPLER_DESC SamplerDesc;
+	DefaultSamplerStateDesc(&SamplerDesc);
+
+	D3D11_TEXTURE2D_DESC TextureDesc;
+	DefaultTextureDesc(&TextureDesc, numbers_test_width, numbers_test_height, numbers_test_numlevels);
+
+	D3D11_SUBRESOURCE_DATA Maplevels[numbers_test_numlevels];
+	DefaultTextureSubresource(Maplevels, numbers_test_pixels, numbers_test_leveloffsets, numbers_test_width, numbers_test_numlevels);
+
+	cube.CreateTexture(m_iDevice, &SamplerDesc, &TextureDesc, Maplevels);
+	cube.SetAnimation(4, (float)numbers_test_width);
+
+
+	positions = nullptr;
+	uvs = nullptr;
+}
+
+void DEMO_APP::CreateStar()
+{
+
+}
+
+
+void DEMO_APP::CreateObj(const char* file, Model& p_model, D3D11_SUBRESOURCE_DATA* p_data, D3D11_TEXTURE2D_DESC* p_texture, D3D11_SAMPLER_DESC* p_sampler)
+{
+	INPUT_VERTEX* ObjVerts = nullptr;
+	unsigned int * ObjectIndices = nullptr;
+	unsigned int max = 0;
+	unsigned int maxIndex = 0;
+
+	ObjectLoader(file, &ObjVerts, &ObjectIndices, max, maxIndex);
+
+	p_model.loadVerts(max, ObjVerts);
+
+	if (p_sampler != nullptr && p_texture != nullptr || p_data != nullptr)
+	{
+		p_model.CreateTexture(m_iDevice, p_sampler, p_texture, p_data);
+	}
+
+	p_model.CreateBuffers(m_iDevice, maxIndex, ObjectIndices, &SceneMatrices);
+
+}
+
+void DEMO_APP::DrawObj(Model* p_model, ID3D11RasterizerState** raster, unsigned int size, float delta)
+{
+	m_dcConext->PSSetShader(m_shaderPS, NULL, 0);
+	m_dcConext->VSSetShader(m_shaderVS, NULL, 0);
+
+	p_model->Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, raster, 2, delta);
 }
 
 //************************************************************
@@ -547,7 +714,10 @@ bool DEMO_APP::ShutDown()
 	m_pBackBuffer->Release();
 	m_shaderPS->Release();
 	m_shaderVS->Release();
-	//circle
+
+	m_pBlendState->Release();
+	m_pRasterStateFrontCull->Release();
+
 	m_pVertexInput->Release();
 
 
@@ -589,6 +759,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int)
 	myApp.ShutDown();
 	return 0;
 }
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	if (GetAsyncKeyState(VK_ESCAPE))
@@ -597,6 +768,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 	case (WM_DESTROY) : { PostQuitMessage(0); }
 						break;
+	case (WM_LBUTTONDOWN) :
+	{
+		GetCursorPos(&startPoint);
+		LbuttonDown = true;
+		break;
+	}
+	case (WM_LBUTTONUP) :
+	{
+		LbuttonDown = false;
+		break;
+	}
 	case(WM_SIZE) :
 
 		if (g_snSwapChain)

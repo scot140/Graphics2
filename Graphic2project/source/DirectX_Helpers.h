@@ -1,6 +1,19 @@
 #pragma once
 
 #include "DefineLibrary.h"
+#include <fstream>
+#include <vector>
+
+#pragma warning(disable : 4996)
+
+using namespace std;
+
+struct OBJ
+{
+	XMFLOAT4 verts;
+	XMFLOAT2 uvs;
+};
+
 //Funtion headers
 
 //Input is only for the Buffer Count, Buffer Width, Buffer Height, and Window to render to
@@ -136,4 +149,153 @@ void DefaultTextureSubresource(D3D11_SUBRESOURCE_DATA* resource, const unsigned 
 		resource[i].SysMemPitch = (width >> i) * 4;
 		resource[i].SysMemSlicePitch = 0;
 	}
+}
+
+bool ObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_Indices, unsigned int& size, unsigned int& maxIndices)
+{
+	struct Objhelper
+	{
+		int vertsIndex;
+		int uvIndex;
+	};
+
+	vector<XMFLOAT4> verts;
+	vector<XMFLOAT2> uvs;
+	vector<XMFLOAT3> normals;
+
+	vector<Objhelper> objectIndices;
+	vector<Objhelper> StoragetIndices;
+	vector<INPUT_VERTEX> sampleVerts;
+	vector<unsigned int>  normalIndices, Indices;
+
+	FILE* myfile;
+
+	fopen_s(&myfile, filepath, "r");
+
+	if (myfile == nullptr)
+	{
+		printf_s("Wrong File Path");
+		return false;
+	}
+
+#pragma region reading in the file
+	while (true)
+	{
+		char lineHeader[500];
+
+		int res = fscanf(myfile, "%s", lineHeader);
+		if (res == EOF)
+		{
+			break;
+		}
+
+		if (strcmp(lineHeader, "v") == 0)
+		{
+			XMFLOAT4 vertex;
+			fscanf(myfile, "%f %f %f\n", &vertex.x, &vertex.y, &vertex.z);
+			vertex.w = 1;
+			verts.push_back(vertex);
+		}
+		else if (strcmp(lineHeader, "vt") == 0)
+		{
+			XMFLOAT2 uv;
+			fscanf(myfile, "%f %f\n", &uv.x, &uv.y);
+			uv.y = 1 - uv.y;
+
+			uvs.push_back(uv);
+		}
+		else if (strcmp(lineHeader, "vn") == 0)
+		{
+			XMFLOAT3 norm;
+			fscanf(myfile, "%f %f %f\n", &norm.x, &norm.y, &norm.z);
+
+			normals.push_back(norm);
+		}
+		else if (strcmp(lineHeader, "f") == 0)
+		{
+			unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
+			int matches = fscanf(myfile, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &vertexIndex[0], &uvIndex[0], &normalIndex[0], &vertexIndex[1], &uvIndex[1], &normalIndex[1], &vertexIndex[2], &uvIndex[2], &normalIndex[2]);
+			if (matches != 9){
+				printf("File can't be read by our simple parser : ( Try exporting with other options\n");
+				return false;
+			}
+
+			Objhelper helper;
+
+			for (unsigned int i = 0; i < 3; i++)
+			{
+				helper.uvIndex = uvIndex[i] - 1;
+				helper.vertsIndex = vertexIndex[i] - 1;
+
+				objectIndices.push_back(helper);
+			}
+
+			normalIndices.push_back(normalIndex[0]);
+			normalIndices.push_back(normalIndex[1]);
+			normalIndices.push_back(normalIndex[2]);
+		}
+	}
+#pragma endregion
+
+
+
+	bool push = true;
+
+	//index finder
+	for (unsigned int i = 0, ind = 0; i < objectIndices.size(); i++, ind = 0)
+	{
+		for (unsigned int index = 0; index < StoragetIndices.size(); index++, ind++)
+		{
+			if (objectIndices[i].vertsIndex == StoragetIndices[index].vertsIndex)
+			{
+				push = false;
+				Indices.push_back(ind);
+				break;
+			}
+		}
+
+		if (push)
+		{
+			Indices.push_back(ind);
+			StoragetIndices.push_back(objectIndices[i]);
+		}
+		push = true;
+	}
+
+
+	(*p_Indices) = new unsigned int[Indices.size()];
+	maxIndices = Indices.size();
+	for (unsigned int i = 0; i < Indices.size(); i++)
+	{
+		unsigned int index = Indices[i];
+		(*p_Indices)[i] = index;
+	}
+	// Creating the vertexes
+	size = StoragetIndices.size();
+	(*test) = new INPUT_VERTEX[size];
+
+	for (unsigned int i = 0; i < size; i++)
+	{
+		Objhelper finder = StoragetIndices[i];
+		XMFLOAT4 foundVert = verts[finder.vertsIndex];
+		XMFLOAT2 foundUV = uvs[finder.uvIndex];
+		(*test)[i].pos = foundVert;
+		(*test)[i].uv = foundUV;
+		(*test)[i].col = XMFLOAT4(1, 1, 0, 0);
+	}
+
+
+
+
+
+
+
+	//for (unsigned int i = 0; i < normalIndices.size(); i++)
+	//{
+	//	unsigned int nIndex = normalIndices[i];
+	//	XMFLOAT3 norms = normals[nIndex - 1];
+	//	p_verts[i] = norms;
+	//}
+
+	return true;
 }

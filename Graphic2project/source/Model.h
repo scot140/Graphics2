@@ -5,18 +5,12 @@ using namespace DirectX;
 #include "DefineLibrary.h"
 
 
+
 class Model
 {
-	struct INPUT_VERTEX
-	{
-		XMFLOAT4 pos;
-		XMFLOAT4 col;
-		XMFLOAT2 uv;
-	};
+
 
 	XMFLOAT3 *					m_pNormals;
-	XMFLOAT4 *					m_pVerts;
-	XMFLOAT2 *					m_pUVs;
 	ANIMATION					m_aniAnimaiton;
 	INPUT_VERTEX *				m_vsInput;
 	float						delta;
@@ -42,7 +36,7 @@ public:
 	void SetModelPosition(float x, float y, float z);
 	void SetAnimation(float maxframe, float width);
 	void loadVerts(unsigned int numVerts, XMFLOAT4* Verts, XMFLOAT2* UV = nullptr);
-	void loadVerts(unsigned int numVerts, float* Verts, float* UV = nullptr);
+	void loadVerts(unsigned int numVerts, INPUT_VERTEX* p_verts);
 	void CreateBuffers(ID3D11Device* device, unsigned int numIndices, const unsigned int* Indices, Scene* scnMatrix);
 	void CreateTexture(ID3D11Device* device, D3D11_SAMPLER_DESC* SamplerDesc, D3D11_TEXTURE2D_DESC* Texture, D3D11_SUBRESOURCE_DATA* SubResource);
 	void UpdateAnimation(ID3D11DeviceContext* p_dcContext, float p_delta);

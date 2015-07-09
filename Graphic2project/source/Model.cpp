@@ -7,8 +7,7 @@ Model::Model()
 {
 	XMStoreFloat4x4(&m_objMatrix.m_mxConstMatrix, XMMatrixIdentity());
 
-	m_pUVs = nullptr;
-	m_pVerts = nullptr;
+
 	m_pBuffer = nullptr;
 	m_pNormals = nullptr;
 	m_pTexture = nullptr;
@@ -51,60 +50,6 @@ void Model::SetAnimation(float maxframe, float width)
 void Model::loadVerts(unsigned int numVerts, XMFLOAT4* Verts, XMFLOAT2* UV)
 {
 	m_nMaxVerts = numVerts;
-	m_pVerts = Verts;
-	m_pUVs = UV;
-	//add normals here later thank you
-
-}
-
-void Model::loadVerts(unsigned int numVerts, float* Verts, float* UV)
-{
-
-
-	m_nMaxVerts = numVerts / 3;
-	m_pVerts = new XMFLOAT4[m_nMaxVerts];
-	m_pUVs = new XMFLOAT2[m_nMaxVerts];
-	//Loading in the Verts
-	int inputIndex = 0;
-	for (unsigned int i = 0; i < m_nMaxVerts; i++)
-	{
-		//Loading in the Verts
-		m_pVerts[i].x = Verts[inputIndex];
-
-		//Loading in the UVs
-		m_pUVs[i].x = UV[inputIndex];
-
-		++inputIndex; //updating the inputIndex
-
-		//Loading in the Verts
-		m_pVerts[i].y = Verts[inputIndex];
-
-		//Loading in the UVs
-		m_pUVs[i].y = UV[inputIndex];
-
-		++inputIndex; //updating the inputIndex
-
-		//Loading in the Verts
-		m_pVerts[i].z = Verts[inputIndex];
-
-		//Loading in the UVs
-		//m_pUVs[i].z = UV[inputIndex];
-
-		m_pVerts[i].w = 1;
-
-		++inputIndex;
-	}
-
-
-	//add normals here later thank you
-}
-
-void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const unsigned int* Indices, Scene* scnMatrix)
-{
-	if (device == nullptr)
-	{
-		return;
-	}
 
 	m_vsInput = new INPUT_VERTEX[m_nMaxVerts];
 
@@ -112,9 +57,26 @@ void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const u
 
 	for (unsigned int i = 0; i < m_nMaxVerts; i++)
 	{
-		m_vsInput[i].pos = m_pVerts[i];
+		m_vsInput[i].pos = Verts[i];
 		m_vsInput[i].col = color;
-		m_vsInput[i].uv  = m_pUVs[i];
+		m_vsInput[i].uv = UV[i];
+	}
+
+	//add normals here later thank you
+
+}
+
+void Model::loadVerts(unsigned int numVerts, INPUT_VERTEX* p_verts)
+{
+	m_nMaxVerts = numVerts;
+	m_vsInput = p_verts;
+}
+
+void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const unsigned int* Indices, Scene* scnMatrix)
+{
+	if (device == nullptr)
+	{
+		return;
 	}
 
 	//Vertex buffer
@@ -132,31 +94,29 @@ void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const u
 
 	device->CreateBuffer(&BufferDesc, &InitData, &m_pBuffer);
 
-	if (Indices == nullptr)
+	if (Indices != nullptr)
 	{
-		return;
+		//Index Buffer
+
+		//D3D11_BUFFER_DESC
+		m_nMaxIndices = numIndices;
+
+		D3D11_BUFFER_DESC IndexBufferDesc;
+		IndexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+		IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		IndexBufferDesc.CPUAccessFlags = NULL;
+		IndexBufferDesc.ByteWidth = sizeof(unsigned int)*m_nMaxIndices;
+		IndexBufferDesc.MiscFlags = 0;
+
+		//D3D11_SUBRESOURCE_DATA
+
+		D3D11_SUBRESOURCE_DATA InitIndexData;
+		InitIndexData.pSysMem = Indices;
+		InitIndexData.SysMemPitch = 0;
+		InitIndexData.SysMemSlicePitch = 0;
+
+		device->CreateBuffer(&IndexBufferDesc, &InitIndexData, &m_pIndexBuffer);
 	}
-
-	//Index Buffer
-
-	//D3D11_BUFFER_DESC
-	m_nMaxIndices = numIndices;
-
-	D3D11_BUFFER_DESC IndexBufferDesc;
-	IndexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
-	IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	IndexBufferDesc.CPUAccessFlags = NULL;
-	IndexBufferDesc.ByteWidth = sizeof(unsigned int)*m_nMaxIndices;
-	IndexBufferDesc.MiscFlags = 0;
-
-	//D3D11_SUBRESOURCE_DATA
-
-	D3D11_SUBRESOURCE_DATA InitIndexData;
-	InitIndexData.pSysMem = Indices;
-	InitIndexData.SysMemPitch = 0;
-	InitIndexData.SysMemSlicePitch = 0;
-
-	device->CreateBuffer(&IndexBufferDesc, &InitIndexData, &m_pIndexBuffer);
 
 	//Constant buffer
 	D3D11_BUFFER_DESC cBufferDesc;
@@ -210,12 +170,22 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 		UpdateAnimation(p_dcContext, delta);
 	}
 
-	p_dcContext->PSSetShaderResources(0, 1, &m_pShaderResource);
-	p_dcContext->PSSetSamplers(0, 1, &m_pSamplerState);
+	if (m_pShaderResource)
+	{
+		p_dcContext->PSSetShaderResources(0, 1, &m_pShaderResource);
+	}
+
+	if (m_pSamplerState)
+	{
+		p_dcContext->PSSetSamplers(0, 1, &m_pSamplerState);
+	}
 
 
 	p_dcContext->VSSetConstantBuffers(0, 2, m_pConstBuffer);
+
+
 	p_dcContext->PSSetConstantBuffers(0, 1, &m_pConstBuffer_PS);
+
 
 	unsigned int stride = sizeof(INPUT_VERTEX);
 	unsigned int zero = 0;
@@ -226,35 +196,35 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 
 	p_dcContext->IASetInputLayout(p_pVertexInput);
 
-	p_dcContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	p_dcContext->IASetPrimitiveTopology(p_Topology);
 
 	//setting the renderstate
-	//for (unsigned int i = 0; i < numRaster; i++)
-	//{
-	//	p_dcContext->RSSetState(p_rasterArray[i]);
-	//
-	//	if (m_nMaxIndices > 0)
-	//	{
-	//		p_dcContext->DrawIndexed(m_nMaxIndices, 0, 0);
-	//	}
-	//	else
-	//	{
-	//		p_dcContext->Draw(m_nMaxVerts, 0);
-	//	}
-	//}
-
-	//if (numRaster < 1)
-	//{
-
-	if (m_nMaxIndices > 0)
+	for (unsigned int i = 0; i < numRaster; i++)
 	{
-		p_dcContext->DrawIndexed(m_nMaxIndices, 0, 0);
+		p_dcContext->RSSetState(p_rasterArray[i]);
+
+		if (m_nMaxIndices > 0)
+		{
+			p_dcContext->DrawIndexed(m_nMaxIndices, 0, 0);
+		}
+		else
+		{
+			p_dcContext->Draw(m_nMaxVerts, 0);
+		}
 	}
-	else
+
+	if (numRaster < 1)
 	{
-		p_dcContext->Draw(m_nMaxVerts, 0);
+
+		if (m_nMaxIndices > 0)
+		{
+			p_dcContext->DrawIndexed(m_nMaxIndices, 0, 0);
+		}
+		else
+		{
+			p_dcContext->Draw(m_nMaxVerts, 0);
+		}
 	}
-	//}
 }
 
 void Model::UpdateAnimation(ID3D11DeviceContext* p_dcContext, float p_delta)
@@ -298,35 +268,56 @@ Model::~Model()
 	if (m_pBuffer)
 	{
 		m_pBuffer->Release();
+		m_pBuffer = nullptr;
 	}
 
 	if (m_pTexture)
 	{
 		m_pTexture->Release();
-	}
-
-	if (m_pVerts)
-	{
-		delete[] m_pVerts;
-	}
-
-	if (m_pUVs)
-	{
-		delete[] m_pUVs;
+		m_pTexture = nullptr;
 	}
 
 	if (m_pShaderResource)
 	{
 		m_pShaderResource->Release();
+		m_pShaderResource = nullptr;
 	}
 
 	if (m_pSamplerState)
 	{
 		m_pSamplerState->Release();
+		m_pSamplerState = nullptr;
 	}
 
 	if (m_vsInput)
 	{
 		delete[] m_vsInput;
+		m_vsInput = nullptr;
 	}
+
+
+
+	for (unsigned int i = 0; i < 2; i++)
+	{
+		if (m_pConstBuffer[i])
+		{
+			m_pConstBuffer[i]->Release();
+			m_pConstBuffer[i] = nullptr;
+		}
+	}
+
+	if (m_pIndexBuffer)
+	{
+		m_pIndexBuffer->Release();
+	}
+
+
+	if (m_pNormals)
+	{
+		delete[] m_pNormals;
+		m_pNormals = nullptr;
+	}
+
+
+
 }

@@ -24,6 +24,13 @@ struct Scene
 	XMFLOAT4X4 matrix_Projection;
 };
 
+struct INPUT_VERTEX
+{
+	XMFLOAT4 pos;
+	XMFLOAT4 col;
+	XMFLOAT2 uv;
+};
+
 struct ANIMATION
 {
 	float frame = 0;

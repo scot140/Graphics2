@@ -167,12 +167,14 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="source\DDSTextureLoader.cpp" />
     <ClCompile Include="source\main.cpp" />
     <ClCompile Include="source\Model.cpp" />
     <ClCompile Include="source\XTime.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\Cube.h" />
+    <ClInclude Include="source\DDSTextureLoader.h" />
     <ClInclude Include="source\DefineLibrary.h" />
     <ClInclude Include="source\DirectX_Helpers.h" />
     <ClInclude Include="source\Model.h" />
