@@ -157,6 +157,7 @@ bool ObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_I
 	{
 		int vertsIndex;
 		int uvIndex;
+		int normIndex;
 	};
 
 	vector<XMFLOAT4> verts;
@@ -215,6 +216,7 @@ bool ObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_I
 		{
 			unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
 			int matches = fscanf(myfile, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &vertexIndex[0], &uvIndex[0], &normalIndex[0], &vertexIndex[1], &uvIndex[1], &normalIndex[1], &vertexIndex[2], &uvIndex[2], &normalIndex[2]);
+
 			if (matches != 9){
 				printf("File can't be read by our simple parser : ( Try exporting with other options\n");
 				return false;
@@ -226,18 +228,14 @@ bool ObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_I
 			{
 				helper.uvIndex = uvIndex[i] - 1;
 				helper.vertsIndex = vertexIndex[i] - 1;
-
+				helper.normIndex = normalIndex[i] - 1;
 				objectIndices.push_back(helper);
 			}
 
-			normalIndices.push_back(normalIndex[0]);
-			normalIndices.push_back(normalIndex[1]);
-			normalIndices.push_back(normalIndex[2]);
+
 		}
 	}
 #pragma endregion
-
-
 
 	bool push = true;
 
@@ -270,6 +268,7 @@ bool ObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_I
 		unsigned int index = Indices[i];
 		(*p_Indices)[i] = index;
 	}
+
 	// Creating the vertexes
 	size = StoragetIndices.size();
 	(*test) = new INPUT_VERTEX[size];
@@ -279,8 +278,10 @@ bool ObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_I
 		Objhelper finder = StoragetIndices[i];
 		XMFLOAT4 foundVert = verts[finder.vertsIndex];
 		XMFLOAT2 foundUV = uvs[finder.uvIndex];
+		XMFLOAT3 foundNorm = normals[finder.normIndex];
 		(*test)[i].pos = foundVert;
 		(*test)[i].uv = foundUV;
+		(*test)[i].normals = foundNorm;
 		(*test)[i].col = XMFLOAT4(1, 1, 0, 0);
 	}
 

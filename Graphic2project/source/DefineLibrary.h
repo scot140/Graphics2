@@ -28,6 +28,7 @@ struct INPUT_VERTEX
 {
 	XMFLOAT4 pos;
 	XMFLOAT4 col;
+	XMFLOAT3 normals;
 	XMFLOAT2 uv;
 };
 

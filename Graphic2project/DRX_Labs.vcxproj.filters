@@ -55,10 +55,19 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="source\PixelShader.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="source\DefaultPS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="source\Skybox_VS.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
     <FxCompile Include="source\VertexShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
-    <FxCompile Include="source\PixelShader.hlsl">
+    <FxCompile Include="source\Skybox_PS.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>

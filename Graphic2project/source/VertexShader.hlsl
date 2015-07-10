@@ -4,7 +4,9 @@ struct INPUT_VERTEX
 {
 	float4 pos : POSITION;
 	float4 col : COLOR;
+	float3 norm: NORM;
 	float2 uv : UV;
+
 };
 
 struct OUTPUT_VERTEX
@@ -32,7 +34,7 @@ OUTPUT_VERTEX main(INPUT_VERTEX fromVertexBuffer)
 
 	float4 output = fromVertexBuffer.pos;
 
-	output = mul(output, WorldMatrix);
+		output = mul(output, WorldMatrix);
 
 	output = mul(output, viewMatrix);
 

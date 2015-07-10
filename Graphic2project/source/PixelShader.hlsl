@@ -31,13 +31,13 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 
 	float4 temp = baseTexture.Sample(filter, uv);
 
-	float4 baseColor;
+		float4 baseColor;
 
 	baseColor.a = temp.b;
 	baseColor.r = temp.g;
 	baseColor.g = temp.r;
 	baseColor.b = temp.a;
 
-	return baseColor;
+	return temp;
 
 }

@@ -1,4 +1,5 @@
 #include "Model.h"
+#include "DDSTextureLoader.h"
 
 #define OBJECT 0
 #define SCENE  1
@@ -9,7 +10,6 @@ Model::Model()
 
 
 	m_pBuffer = nullptr;
-	m_pNormals = nullptr;
 	m_pTexture = nullptr;
 	m_pIndexBuffer = nullptr;
 	m_pShaderResource = nullptr;
@@ -163,6 +163,12 @@ void Model::CreateTexture(ID3D11Device* device, D3D11_SAMPLER_DESC* SamplerDesc,
 
 }
 
+void Model::CreateTexture(ID3D11Device* device, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler)
+{
+	device->CreateSamplerState(p_sampler, &m_pSamplerState);
+	CreateDDSTextureFromFile(device, filename, nullptr, &m_pShaderResource);
+}
+
 void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY p_Topology, ID3D11RasterizerState** p_rasterArray, unsigned int numRaster, float delta)
 {
 	if (m_aniAnimaiton.maxFrame > 0)
@@ -180,12 +186,9 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 		p_dcContext->PSSetSamplers(0, 1, &m_pSamplerState);
 	}
 
-
 	p_dcContext->VSSetConstantBuffers(0, 2, m_pConstBuffer);
 
-
 	p_dcContext->PSSetConstantBuffers(0, 1, &m_pConstBuffer_PS);
-
 
 	unsigned int stride = sizeof(INPUT_VERTEX);
 	unsigned int zero = 0;
@@ -215,6 +218,7 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 
 	if (numRaster < 1)
 	{
+		p_dcContext->RSSetState(nullptr);
 
 		if (m_nMaxIndices > 0)
 		{
@@ -296,7 +300,6 @@ Model::~Model()
 	}
 
 
-
 	for (unsigned int i = 0; i < 2; i++)
 	{
 		if (m_pConstBuffer[i])
@@ -311,13 +314,8 @@ Model::~Model()
 		m_pIndexBuffer->Release();
 	}
 
-
-	if (m_pNormals)
+	if (m_pConstBuffer_PS)
 	{
-		delete[] m_pNormals;
-		m_pNormals = nullptr;
+		m_pConstBuffer_PS->Release();
 	}
-
-
-
 }
