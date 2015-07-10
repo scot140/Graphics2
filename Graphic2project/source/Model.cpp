@@ -9,13 +9,17 @@ Model::Model()
 	XMStoreFloat4x4(&m_objMatrix.m_mxConstMatrix, XMMatrixIdentity());
 
 
-	m_pBuffer = nullptr;
-	m_pTexture = nullptr;
-	m_pIndexBuffer = nullptr;
-	m_pShaderResource = nullptr;
-
-	m_nMaxVerts = 0;
-	m_nMaxIndices = 0;
+	ZERO_OUT(m_pBuffer);
+	ZERO_OUT(m_pTexture);
+	ZERO_OUT(m_pIndexBuffer);
+	ZERO_OUT(m_pShaderResource);
+	ZERO_OUT(m_nMaxVerts);
+	ZERO_OUT(m_nMaxIndices);
+	ZERO_OUT(m_pConstBuffer[0]); // vertex Shader's constant buffers
+	ZERO_OUT(m_pConstBuffer[1]); //vertex Shader's constant buffers
+	ZERO_OUT(m_pConstBuffer_PS);
+	ZERO_OUT(m_pSamplerState);
+	ZERO_OUT(m_vsInput);
 
 	ZeroMemory(&m_aniAnimaiton, sizeof(ANIMATION));
 }
@@ -116,6 +120,7 @@ void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const u
 		InitIndexData.SysMemSlicePitch = 0;
 
 		device->CreateBuffer(&IndexBufferDesc, &InitIndexData, &m_pIndexBuffer);
+
 	}
 
 	//Constant buffer
@@ -144,6 +149,7 @@ void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const u
 	ConstantBufferData.pSysMem = &m_aniAnimaiton;
 
 	device->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBuffer_PS);
+
 }
 
 void Model::CreateTexture(ID3D11Device* device, D3D11_SAMPLER_DESC* SamplerDesc, D3D11_TEXTURE2D_DESC* Texture, D3D11_SUBRESOURCE_DATA* SubResource)
@@ -166,6 +172,7 @@ void Model::CreateTexture(ID3D11Device* device, D3D11_SAMPLER_DESC* SamplerDesc,
 void Model::CreateTexture(ID3D11Device* device, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler)
 {
 	device->CreateSamplerState(p_sampler, &m_pSamplerState);
+
 	CreateDDSTextureFromFile(device, filename, nullptr, &m_pShaderResource);
 }
 
