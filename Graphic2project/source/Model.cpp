@@ -319,10 +319,12 @@ Model::~Model()
 	if (m_pIndexBuffer)
 	{
 		m_pIndexBuffer->Release();
+		m_pIndexBuffer = nullptr;
 	}
 
 	if (m_pConstBuffer_PS)
 	{
 		m_pConstBuffer_PS->Release();
+		m_pConstBuffer_PS = nullptr;
 	}
 }
