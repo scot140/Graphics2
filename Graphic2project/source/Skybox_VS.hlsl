@@ -32,23 +32,18 @@ OUTPUT_VERTEX main(INPUT_VERTEX fromVertexBuffer)
 {
 	OUTPUT_VERTEX sendToRasterizer = (OUTPUT_VERTEX)0;
 
-	float4 output = fromVertexBuffer.pos;
+	float4 output = float4(fromVertexBuffer.pos.xyzw);
 
-		sendToRasterizer.uvOut.x = fromVertexBuffer.pos.x;
-	sendToRasterizer.uvOut.y = fromVertexBuffer.pos.y;
-	sendToRasterizer.uvOut.z = fromVertexBuffer.pos.z;
-
-
-	output = mul(output, WorldMatrix);
+		output = mul(output, WorldMatrix);
 
 	output = mul(output, viewMatrix);
 
 	output = mul(output, projectionMatrix);
 
-	
-
-	sendToRasterizer.projectedCoordinate = output;
-
+	///Finalizing the output
+	sendToRasterizer.projectedCoordinate = output.xyzw;
+	sendToRasterizer.uvOut = fromVertexBuffer.pos.xyz;
 	sendToRasterizer.colorOut = fromVertexBuffer.col;
+
 	return sendToRasterizer;
 }

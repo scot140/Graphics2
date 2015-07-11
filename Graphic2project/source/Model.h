@@ -8,7 +8,6 @@ using namespace DirectX;
 
 class Model
 {
-
 	ANIMATION					m_aniAnimaiton;
 	INPUT_VERTEX *				m_vsInput;
 	float						delta;
