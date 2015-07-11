@@ -1,4 +1,3 @@
-#pragma pack_matrix(row_major)
 
 struct INPUT_VERTEX
 {
@@ -6,13 +5,15 @@ struct INPUT_VERTEX
 	float4 col : COLOR;
 	float3 norm: NORM;
 	float2 uv : UV;
+
 };
 
 struct OUTPUT_VERTEX
 {
 	float4 projectedCoordinate : SV_POSITION;
-	float2 uvOut : UV;
 	float4 colorOut : COLOR;
+	float3 norm: NORM;
+	float2 uvOut : UV;
 };
 
 cbuffer OBJECT : register(b0)
@@ -34,7 +35,7 @@ OUTPUT_VERTEX main(INPUT_VERTEX fromVertexBuffer)
 
 	float4 output = fromVertexBuffer.pos;
 
-	output = mul(output, WorldMatrix);
+		output = mul(output, WorldMatrix);
 
 	output = mul(output, viewMatrix);
 

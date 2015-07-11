@@ -40,7 +40,7 @@ using namespace std;
 #include "../Skybox_PS.csh"
 
 #define BACKBUFFER_WIDTH	800
-#define BACKBUFFER_HEIGHT	650
+#define BACKBUFFER_HEIGHT	800
 #define OBJECT				0
 #define SCENE				1
 #define TIMER				2
@@ -189,8 +189,9 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	//const D3D_FEATURE_LEVEL Feature = D3D_FEATURE_LEVEL_10_0;
 
 	// TODO: PART 1 STEP 3a
+
 	ZeroMemory(&m_scDesc, sizeof(m_scDesc));
-	CreateSwapChainDesc(&m_scDesc, &window, 1, 500, 500);
+	CreateSwapChainDesc(&m_scDesc, &window, 1, BACKBUFFER_WIDTH, BACKBUFFER_HEIGHT);
 
 	UINT createDeviceFlags = 0;
 #ifdef _DEBUG
