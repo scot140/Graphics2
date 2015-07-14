@@ -48,3 +48,13 @@ struct LIGHTING
 	float padding;
 };
 
+struct PtLight
+{
+	XMFLOAT4 pos;
+	float range;
+	float power;
+	XMFLOAT4 color;
+	XMFLOAT4 diffuse;
+	XMFLOAT2 padding;
+};
+

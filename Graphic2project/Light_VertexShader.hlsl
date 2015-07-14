@@ -13,8 +13,10 @@ struct OUTPUT_VERTEX
 {
 	float4 projectedCoordinate : SV_POSITION;
 	float4 colorOut : COLOR;
+	float4 WorldPos : POSITION;
 	float3 norm: NORM;
 	float2 uvOut : UV;
+	float3 padding : padding;
 };
 
 cbuffer OBJECT : register(b0)
@@ -37,6 +39,8 @@ OUTPUT_VERTEX main(INPUT_VERTEX fromVertexBuffer)
 	float4 output = fromVertexBuffer.pos;
 
 	output = mul(output, WorldMatrix);
+
+	sendToRasterizer.WorldPos = output;
 
 	output = mul(output, viewMatrix);
 
