@@ -1,3 +1,4 @@
+#pragma pack_matrix(row_major)
 
 struct INPUT_VERTEX
 {
@@ -35,7 +36,7 @@ OUTPUT_VERTEX main(INPUT_VERTEX fromVertexBuffer)
 
 	float4 output = fromVertexBuffer.pos;
 
-		output = mul(output, WorldMatrix);
+	output = mul(output, WorldMatrix);
 
 	output = mul(output, viewMatrix);
 
@@ -46,6 +47,8 @@ OUTPUT_VERTEX main(INPUT_VERTEX fromVertexBuffer)
 	sendToRasterizer.colorOut = fromVertexBuffer.col;
 
 	sendToRasterizer.uvOut = fromVertexBuffer.uv;
+
+	sendToRasterizer.norm = normalize(fromVertexBuffer.norm);
 
 	return sendToRasterizer;
 }

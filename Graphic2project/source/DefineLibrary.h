@@ -1,7 +1,7 @@
 #pragma once
 
-#define RASTER_WIDTH	500
-#define RASTER_HEIGHT	500
+#define RASTER_WIDTH	800
+#define RASTER_HEIGHT	800
 #define ZFAR			100
 #define ZNEAR			0.1f
 #define FOV				65
@@ -37,6 +37,14 @@ struct ANIMATION
 	float frame = 0;
 	float maxFrame = 0;
 	float width;
+	float padding;
+};
+
+struct LIGHTING
+{
+	XMFLOAT3 dir;
+	XMFLOAT4 ambient;
+	XMFLOAT4 diffuse;
 	float padding;
 };
 

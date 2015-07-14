@@ -8,11 +8,6 @@
 
 using namespace std;
 
-struct OBJ
-{
-	XMFLOAT4 verts;
-	XMFLOAT2 uvs;
-};
 
 //Funtion headers
 
@@ -31,7 +26,6 @@ void CreateSwapChainDesc(DXGI_SWAP_CHAIN_DESC *m_scDesc, HWND* window, int buffe
 	m_scDesc->BufferDesc.Width = bufferWidth;
 	m_scDesc->BufferDesc.Height = bufferHeight;
 	m_scDesc->BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	m_scDesc->Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 	m_scDesc->BufferDesc.RefreshRate.Numerator = 60;
 	m_scDesc->BufferDesc.RefreshRate.Denominator = 1;
 	m_scDesc->BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -61,6 +55,7 @@ void DefaultBlendDesc(D3D11_BLEND_DESC* BlendDesc)
 {
 
 	ZeroMemory(BlendDesc, sizeof(*BlendDesc));
+	BlendDesc->AlphaToCoverageEnable = false;
 	BlendDesc->RenderTarget[0].BlendEnable = true;
 	BlendDesc->RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
 	BlendDesc->RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
@@ -231,8 +226,6 @@ bool ObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_I
 				helper.normIndex = normalIndex[i] - 1;
 				objectIndices.push_back(helper);
 			}
-
-
 		}
 	}
 #pragma endregion
@@ -284,12 +277,6 @@ bool ObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_I
 		(*test)[i].normals = foundNorm;
 		(*test)[i].col = XMFLOAT4(1, 1, 0, 0);
 	}
-
-
-
-
-
-
 
 	//for (unsigned int i = 0; i < normalIndices.size(); i++)
 	//{

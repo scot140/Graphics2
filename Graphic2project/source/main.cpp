@@ -38,7 +38,8 @@ using namespace std;
 #include "../DefaultPS.csh"
 #include "../Skybox_VS.csh"
 #include "../Skybox_PS.csh"
-
+#include "../DirectionalLight_PS.csh"
+#include "../Light_VertexShader.csh"
 #define BACKBUFFER_WIDTH	800
 #define BACKBUFFER_HEIGHT	800
 #define OBJECT				0
@@ -49,7 +50,7 @@ using namespace std;
 #define DOWN				1
 #define RIGHT				2
 #define LEFT				3
-#define SAFE_RELEASE(x) if(x) { x->Release(); x = nullptr; } 
+#define SAFE_RELEASE(x) if(x) { x->Release(); x = nullptr; }
 //************************************************************
 //************ SIMPLE WINDOWS APP CLASS **********************
 //************************************************************
@@ -65,6 +66,17 @@ D3D11_VIEWPORT m_vpViewPort;
 
 bool LbuttonDown = false;
 POINT startPoint;
+
+Scene m_miniScene;
+Scene SceneMatrices;
+
+struct BufferInput
+{
+	ID3D11Buffer** ConstPixel;
+	unsigned int numPixelSlot;
+	ID3D11Buffer** ConstVertex;
+	unsigned int numVertexSlot;
+};
 
 class DEMO_APP
 {
@@ -92,6 +104,9 @@ class DEMO_APP
 	ID3D11PixelShader* m_SkyboxPS;
 	ID3D11VertexShader* m_SkyboxVS;
 
+	ID3D11PixelShader*	m_DLightPS;
+	ID3D11VertexShader* m_LightVS;
+
 	//depth perspective
 	ID3D11Texture2D* m_ZBuffer;
 	ID3D11DepthStencilView* m_DepthView;
@@ -106,23 +121,33 @@ class DEMO_APP
 	//Math
 	XMFLOAT4X4 m_mxWorldMatrix;
 	XMFLOAT4X4 m_mxViewMatrix;
+
+
 	XMFLOAT4X4 m_mxProjectonMatrix;
-	Scene SceneMatrices;
 
-	Scene m_miniScene;
 	XMFLOAT4X4 m_mxMiniViewMatrix;
-
+	XMFLOAT4X4 m_mxMiniProjectionMatrix;
 	//misc
 
 	XMFLOAT4X4 rotation;
 	POINT distance;
 
-
 	void MouseMovement(bool& move, float dt, XMFLOAT4X4* rot);
 
 	bool displayWindow = false;
+	bool fullscreen = false;
 	bool CursorClientCheck(POINT curr);
+
+	Object m_objMatrix;
+	LIGHTING m_lgLight;
+	Scene m_scnMatrix;
+	ANIMATION m_aniAnimation;
+	ID3D11Buffer* m_pConstBufferAnimation_PS;
+	ID3D11Buffer* m_pConstBuffer[2];
+	ID3D11Buffer* m_pConstBufferLight_PS;
+
 public:
+
 	Model m_StarModel;
 	Model Pyramid;
 	Model Dorumon;
@@ -137,14 +162,22 @@ public:
 
 	void CreateObj(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC * p_sampler);
 
-	void DrawObj(Model* p_model, ID3D11RasterizerState** raster, unsigned int size, float delta);
+	void DrawObj(Model* p_model, BufferInput*p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size);
 	void DrawStar();
 	void UpdateSkyBox(XMFLOAT4X4& rot);
 	void CreateSkyBox(D3D11_SAMPLER_DESC * p_sampler);
+	void ChangeProjectionMatrix();
+	void MappingObjMatrix(D3D11_MAPPED_SUBRESOURCE& p_Scene, Object& p_Matrix);
+	void MappingAnimation(D3D11_MAPPED_SUBRESOURCE& p_Scene, Model& p_Model);
+	void MappingLighting(D3D11_MAPPED_SUBRESOURCE& p_Scene, LIGHTING& p_light);
+	void RedrawSceneBuffer(D3D11_MAPPED_SUBRESOURCE& p_Scene, Scene& p_Matrix);
+	void CreateConstBuffers();
+
 	int DistanceFormula(POINT LH, POINT RH);
 	void WorldCameraProjectionSetup();
 	bool Run();
 	bool ShutDown();
+
 	XTime dt;
 };
 
@@ -189,11 +222,11 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	//const D3D_FEATURE_LEVEL Feature = D3D_FEATURE_LEVEL_10_0;
 
 	// TODO: PART 1 STEP 3a
-
 	ZeroMemory(&m_scDesc, sizeof(m_scDesc));
 	CreateSwapChainDesc(&m_scDesc, &window, 1, BACKBUFFER_WIDTH, BACKBUFFER_HEIGHT);
 
 	UINT createDeviceFlags = 0;
+
 #ifdef _DEBUG
 	createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #else
@@ -325,6 +358,9 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	m_iDevice->CreatePixelShader(Skybox_PS, sizeof(Skybox_PS), NULL, &m_SkyboxPS);
 	m_iDevice->CreateVertexShader(Skybox_VS, sizeof(Skybox_VS), NULL, &m_SkyboxVS);
 
+	m_iDevice->CreatePixelShader(DirectionalLight_PS, sizeof(DirectionalLight_PS), NULL, &m_DLightPS);
+	m_iDevice->CreateVertexShader(Light_VertexShader, sizeof(Light_VertexShader), NULL, &m_LightVS);
+
 	// TODO: PART 2 STEP 8a
 	D3D11_INPUT_ELEMENT_DESC element[] =
 	{
@@ -338,9 +374,8 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	GetCursorPos(&startPoint);
 
+	CreateConstBuffers();
 	//cube model
-
-
 
 	XMMATRIX temp;
 
@@ -363,8 +398,10 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	XMStoreFloat4x4(&Pyramid.m_objMatrix.m_mxConstMatrix, temp);
 
 
-
 	//Drawing a dorumon
+	XMFLOAT3 pos = m_StarModel.GetModelPosition();
+
+
 	CreateObj("resource/Models/Dorumon.obj", Dorumon, L"resource/Texture/Dorumon.dds", &SamplerDesc);
 
 	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 0, 0);
@@ -415,7 +452,6 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 bool DEMO_APP::Run()
 {
-
 	m_DepthView = g_DepthView;
 	m_pDepthState = g_pDepthState;
 	m_rtvRenderTargetView = g_rtvRenderTargetView;
@@ -437,15 +473,14 @@ bool DEMO_APP::Run()
 
 	// clearing the screen to that color
 	float color[4];
-	color[0] = 0;
-	color[1] = 1;
+	color[0] = 1;
+	color[1] = 0;
 	color[2] = 0;
 	color[3] = 1;
 
 	m_dcConext->ClearDepthStencilView(m_DepthView, D3D11_CLEAR_DEPTH, 1, 0);
 
 	m_dcConext->ClearRenderTargetView(m_rtvRenderTargetView, color);
-
 
 #pragma region InputChecker 
 
@@ -573,22 +608,23 @@ bool DEMO_APP::Run()
 	}
 #pragma endregion
 
-	UpdateSkyBox(rotation);
+
 
 	D3D11_MAPPED_SUBRESOURCE resource;
 	D3D11_MAPPED_SUBRESOURCE SceneResource;
 	XMMATRIX matrix;
 
+	RedrawSceneBuffer(SceneResource, SceneMatrices);
+
+	UpdateSkyBox(rotation);
+
 	ID3D11RasterizerState* rasterArray[2];
 	rasterArray[0] = m_pRasterStateFrontCull;
 	rasterArray[1] = m_pRasterState;
 
+
 #pragma region Pyramid constantBuffer
 
-
-	ZeroMemory(&resource, sizeof(resource));
-
-	m_dcConext->Map(Pyramid.m_pConstBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &resource);
 
 	matrix = XMLoadFloat4x4(&Pyramid.m_objMatrix.m_mxConstMatrix);
 
@@ -596,152 +632,124 @@ bool DEMO_APP::Run()
 
 	XMStoreFloat4x4(&Pyramid.m_objMatrix.m_mxConstMatrix, matrix);
 
-	memcpy(resource.pData, &Pyramid.m_objMatrix, sizeof(Pyramid.m_objMatrix));
+	m_objMatrix.m_mxConstMatrix = Pyramid.m_objMatrix.m_mxConstMatrix;
 
-	m_dcConext->Unmap(Pyramid.m_pConstBuffer[OBJECT], 0);
+	MappingObjMatrix(resource, m_objMatrix);
 
 	////////////////////////////////////////////////////////////////////
 
-	ZeroMemory(&SceneResource, sizeof(SceneResource));
 
-	m_dcConext->Map(Pyramid.m_pConstBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &SceneResource);
-
-	memcpy(SceneResource.pData, &SceneMatrices, sizeof(SceneMatrices));
-
-	m_dcConext->Unmap(Pyramid.m_pConstBuffer[SCENE], 0);
-
+	MappingAnimation(resource, Pyramid);
 #pragma endregion
 
-	DrawObj(&Pyramid, rasterArray, 2, (float)dt.Delta());
+	BufferInput input;
+	input.ConstPixel = &m_pConstBufferAnimation_PS;
+	input.numPixelSlot = 1;
 
+	input.ConstVertex = m_pConstBuffer;
+	input.numVertexSlot = 2;
+
+	DrawObj(&Pyramid, &input, m_shaderVS, m_shaderPS, rasterArray, 2);
 	DrawStar();
 
 #pragma region Dorumon constantBuffer
-
-	ZeroMemory(&resource, sizeof(resource));
-
-	m_dcConext->Map(Dorumon.m_pConstBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &resource);
+	matrix = XMLoadFloat4x4(&Dorumon.m_objMatrix.m_mxConstMatrix);
 
 
-	memcpy(resource.pData, &Dorumon.m_objMatrix, sizeof(Dorumon.m_objMatrix));
+	XMStoreFloat4x4(&Dorumon.m_objMatrix.m_mxConstMatrix, matrix);
 
-	m_dcConext->Unmap(Dorumon.m_pConstBuffer[OBJECT], 0);
+	m_objMatrix.m_mxConstMatrix = Dorumon.m_objMatrix.m_mxConstMatrix;
+
+	MappingObjMatrix(resource, Dorumon.m_objMatrix);
 
 	//////////////////////////////////////////////////////////////////////
 
-	ZeroMemory(&SceneResource, sizeof(SceneResource));
-
-	m_dcConext->Map(Dorumon.m_pConstBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &SceneResource);
-
-	memcpy(SceneResource.pData, &SceneMatrices, sizeof(SceneMatrices));
-
-	m_dcConext->Unmap(Dorumon.m_pConstBuffer[SCENE], 0);
-
+	LIGHTING light;
+	light.dir = XMFLOAT3(1, 1, 0);
+	light.ambient = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	light.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	MappingLighting(resource, light);
 #pragma endregion
+	input.numPixelSlot = 1;
+	input.ConstPixel = &m_pConstBufferLight_PS;
+	input.ConstVertex = m_pConstBuffer;
+	input.numVertexSlot = 2;
 
-	DrawObj(&Dorumon, nullptr, 0, (float)dt.Delta());
+	DrawObj(&Dorumon, &input, m_LightVS, m_DLightPS, nullptr, 0);
 
 #pragma region DinoTiger constantBuffer
 
-	ZeroMemory(&resource, sizeof(resource));
-
-	m_dcConext->Map(DinoTiger.m_pConstBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &resource);
-
 	matrix = XMLoadFloat4x4(&DinoTiger.m_objMatrix.m_mxConstMatrix);
 
-	matrix = XMMatrixRotationY((float)dt.Delta()) * matrix;
 
-	memcpy(resource.pData, &DinoTiger.m_objMatrix, sizeof(DinoTiger.m_objMatrix));
 
-	m_dcConext->Unmap(DinoTiger.m_pConstBuffer[OBJECT], 0);
+	XMStoreFloat4x4(&DinoTiger.m_objMatrix.m_mxConstMatrix, matrix);
+
+
+	MappingObjMatrix(resource, DinoTiger.m_objMatrix);
 
 	//////////////////////////////////////////////////////////////////////
 
-	ZeroMemory(&SceneResource, sizeof(SceneResource));
-
-	m_dcConext->Map(DinoTiger.m_pConstBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &SceneResource);
-
-	memcpy(SceneResource.pData, &SceneMatrices, sizeof(SceneMatrices));
-
-	m_dcConext->Unmap(DinoTiger.m_pConstBuffer[SCENE], 0);
 
 #pragma endregion
 
-	DrawObj(&DinoTiger, nullptr, 0, (float)dt.Delta());
+	DrawObj(&DinoTiger, &input, m_LightVS, m_DLightPS, nullptr, 0);
 
 #pragma region Second Draw
 
 	if (displayWindow)
 	{
-
+		RedrawSceneBuffer(SceneResource, m_miniScene);
 #pragma region Pyramid constantBuffer
 
 		////////////////////////////////////////////////////////////////////
-
-		ZeroMemory(&SceneResource, sizeof(SceneResource));
-
-		m_dcConext->Map(Pyramid.m_pConstBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &SceneResource);
-
-		memcpy(SceneResource.pData, &m_miniScene, sizeof(m_miniScene));
-
-		m_dcConext->Unmap(Pyramid.m_pConstBuffer[SCENE], 0);
-
 #pragma endregion
 
 
 #pragma region Dorumon Redraw constantBuffer
 
 		//////////////////////////////////////////////////////////////////////
-
-		ZeroMemory(&SceneResource, sizeof(SceneResource));
-
-		m_dcConext->Map(Dorumon.m_pConstBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &SceneResource);
-
-		memcpy(SceneResource.pData, &m_miniScene, sizeof(m_miniScene));
-
-		m_dcConext->Unmap(Dorumon.m_pConstBuffer[SCENE], 0);
+		//RedrawSceneBuffer(&Dorumon, SceneResource, m_miniScene);
 
 #pragma endregion
-
-		float reColor[4];
-		reColor[0] = 0;
-		reColor[1] = 0;
-		reColor[2] = 0;
-		reColor[3] = 0;
-		//m_dcConext->ClearRenderTargetView(m_rtvRenderTargetView, reColor);
-
-		m_dcConext->RSSetViewports(1, &m_vpSecondaryView);
-
 
 #pragma region Star constantBuffer
 		//////////////////////////////////////////////////////////////////////
 
-		ZeroMemory(&SceneResource, sizeof(SceneResource));
-
-		m_dcConext->Map(m_StarModel.m_pConstBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &SceneResource);
-
-		memcpy(SceneResource.pData, &m_miniScene, sizeof(m_miniScene));
-
-		m_dcConext->Unmap(m_StarModel.m_pConstBuffer[SCENE], 0);
+		//RedrawSceneBuffer(&m_StarModel, SceneResource, m_miniScene);
 
 #pragma endregion
 
-		m_dcConext->PSSetShader(m_DefaultPS, NULL, 0);
-		m_dcConext->VSSetShader(m_shaderVS, NULL, 0);
+		m_dcConext->RSSetViewports(1, &m_vpSecondaryView);
 
-		m_StarModel.Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, nullptr, 0, (float)dt.Delta());
 
-		DrawObj(&Dorumon, nullptr, 0, (float)dt.Delta());
+		BufferInput Mini_input;
+		ZERO_OUT(Mini_input);
+		Mini_input.ConstVertex = m_pConstBuffer;
+		Mini_input.numVertexSlot = 2;
 
-		DrawObj(&Pyramid, rasterArray, 2, (float)dt.Delta());
+		DrawObj(&m_StarModel, &Mini_input, m_shaderVS, m_DefaultPS, nullptr, 0);
+
+		Mini_input.ConstPixel = &m_pConstBufferAnimation_PS;
+		Mini_input.numPixelSlot = 1;
+
+		Mini_input.ConstVertex = m_pConstBuffer;
+		Mini_input.numVertexSlot = 2;
+
+		DrawObj(&Pyramid, &Mini_input, m_shaderVS, m_shaderPS, rasterArray, 2);
+
+		Mini_input.numPixelSlot = 1;
+		Mini_input.ConstPixel = &m_pConstBufferLight_PS;
+		Mini_input.ConstVertex = m_pConstBuffer;
+		Mini_input.numVertexSlot = 2;
+
+		DrawObj(&Dorumon, &Mini_input, m_LightVS, m_DLightPS, nullptr, 0);
+
 
 	}
 #pragma endregion 
-
-
-
 	//Swaping the back buffer info with the front buffer
-	m_snSwapChain->Present(0, 0);
+	m_snSwapChain->Present(1, 0);
 	// END OF PART 1
 
 	return true;
@@ -781,14 +789,20 @@ void DEMO_APP::WorldCameraProjectionSetup()
 	/*******************************************************************/
 	//Setting the Projection Matrix
 
+
 	XMMATRIX projection = XMMatrixIdentity();
 	projection = XMMatrixPerspectiveFovLH(FOV, ASPECT_RATIO, ZNEAR, ZFAR);
 	XMStoreFloat4x4(&m_mxProjectonMatrix, projection);
 
+	projection = XMMatrixIdentity();
+	projection = XMMatrixPerspectiveFovLH(FOV, 200 / 200, ZNEAR, ZFAR);
+	XMStoreFloat4x4(&m_mxMiniProjectionMatrix, projection);
+
+
 	SceneMatrices.matrix_sceneCamera = m_mxViewMatrix;
 	SceneMatrices.matrix_Projection = m_mxProjectonMatrix;
 
-	m_miniScene.matrix_Projection = m_mxProjectonMatrix;
+	m_miniScene.matrix_Projection = m_mxMiniProjectionMatrix;
 	m_miniScene.matrix_sceneCamera = m_mxMiniViewMatrix;
 }
 
@@ -1051,7 +1065,7 @@ void DEMO_APP::CreateStar(D3D11_SAMPLER_DESC * p_sampler)
 
 	m_StarModel.loadVerts(22, Star);
 	//m_StarModel.CreateTexture(m_iDevice, L"resource/Texture/Star.dds");
-	m_StarModel.CreateBuffers(m_iDevice, maxIndices, indices, &SceneMatrices);
+	m_StarModel.CreateBuffers(m_iDevice, maxIndices, indices);
 
 	XMMATRIX temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 2, 0);
 
@@ -1075,7 +1089,7 @@ void DEMO_APP::CreateObj(const char* file, Model& p_model, D3D11_SUBRESOURCE_DAT
 		p_model.CreateTexture(m_iDevice, p_sampler, p_texture, p_data);
 	}
 
-	p_model.CreateBuffers(m_iDevice, maxIndex, ObjectIndices, &SceneMatrices);
+	p_model.CreateBuffers(m_iDevice, maxIndex, ObjectIndices);
 
 }
 
@@ -1092,16 +1106,19 @@ void DEMO_APP::CreateObj(const char* file, Model& p_model, const wchar_t* filena
 
 	p_model.CreateTexture(m_iDevice, filename, p_sampler);
 
-	p_model.CreateBuffers(m_iDevice, maxIndex, ObjectIndices, &SceneMatrices);
+	p_model.CreateBuffers(m_iDevice, maxIndex, ObjectIndices);
 
 }
 
-void DEMO_APP::DrawObj(Model* p_model, ID3D11RasterizerState** raster, unsigned int size, float delta)
+void DEMO_APP::DrawObj(Model* p_model, BufferInput* p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size)
 {
-	m_dcConext->PSSetShader(m_shaderPS, NULL, 0);
-	m_dcConext->VSSetShader(m_shaderVS, NULL, 0);
+	m_dcConext->PSSetShader(p_shaderPS, NULL, 0);
+	m_dcConext->VSSetShader(p_shaderVS, NULL, 0);
 
-	p_model->Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, raster, size, delta);
+	m_dcConext->VSSetConstantBuffers(0, p_input->numVertexSlot, p_input->ConstVertex);
+	m_dcConext->PSSetConstantBuffers(0, p_input->numPixelSlot, p_input->ConstPixel);
+
+	p_model->Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, raster, size);
 }
 
 void DEMO_APP::DrawStar()
@@ -1112,38 +1129,106 @@ void DEMO_APP::DrawStar()
 
 #pragma region Star constantBuffer
 
-
-	ZeroMemory(&resource, sizeof(resource));
-
-	m_dcConext->Map(m_StarModel.m_pConstBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &resource);
-
 	matrix = XMLoadFloat4x4(&m_StarModel.m_objMatrix.m_mxConstMatrix);
 
 	matrix = XMMatrixRotationY((float)dt.Delta()) * matrix;
 
 	XMStoreFloat4x4(&m_StarModel.m_objMatrix.m_mxConstMatrix, matrix);
 
-	memcpy(resource.pData, &m_StarModel.m_objMatrix, sizeof(m_StarModel.m_objMatrix));
+	MappingObjMatrix(resource, m_StarModel.m_objMatrix);
 
-	m_dcConext->Unmap(m_StarModel.m_pConstBuffer[OBJECT], 0);
 
 	//////////////////////////////////////////////////////////////////////
+	RedrawSceneBuffer(SceneResource, m_scnMatrix);
+#pragma endregion
 
-	ZeroMemory(&SceneResource, sizeof(SceneResource));
+	BufferInput input;
+	ZERO_OUT(input);
+	input.ConstVertex = m_pConstBuffer;
+	input.numVertexSlot = 2;
+	DrawObj(&m_StarModel, &input, m_shaderVS, m_DefaultPS, nullptr, 0);
 
-	m_dcConext->Map(m_StarModel.m_pConstBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &SceneResource);
+	//	m_dcConext->PSSetShader(m_DefaultPS, NULL, 0);
+	//m_dcConext->VSSetShader(m_shaderVS, NULL, 0);
 
-	memcpy(SceneResource.pData, &SceneMatrices, sizeof(SceneMatrices));
+	//m_StarModel.Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, nullptr, 0, (float)dt.Delta());
 
-	m_dcConext->Unmap(m_StarModel.m_pConstBuffer[SCENE], 0);
+}
+
+void DEMO_APP::MappingObjMatrix(D3D11_MAPPED_SUBRESOURCE& p_Scene, Object& p_Matrix)
+{
+	////////////////////////////////////////////////////////////////////
+
+	ZeroMemory(&p_Scene, sizeof(D3D11_MAPPED_SUBRESOURCE));
+
+	m_dcConext->Map(m_pConstBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &p_Scene);
+
+	m_objMatrix = p_Matrix;
+
+	memcpy(p_Scene.pData, &m_objMatrix, sizeof(Object));
+
+	m_dcConext->Unmap(m_pConstBuffer[OBJECT], 0);
+}
+
+void DEMO_APP::MappingAnimation(D3D11_MAPPED_SUBRESOURCE& p_Scene, Model& p_Model)
+{
+#pragma region Animation
+
+	ZeroMemory(&p_Scene, sizeof(p_Scene));
+
+	m_dcConext->Map(m_pConstBufferAnimation_PS, 0, D3D11_MAP_WRITE_DISCARD, NULL, &p_Scene);
+
+#pragma region FrameUpdate
+
+	p_Model.delta += (float)dt.Delta();
+
+	if (p_Model.delta >= 1)
+	{
+		p_Model.m_aniAnimaiton.frame++;
+
+		if (p_Model.m_aniAnimaiton.maxFrame <= p_Model.m_aniAnimaiton.frame)
+		{
+			p_Model.m_aniAnimaiton.frame = 0;
+		}
+
+		p_Model.delta = 0;
+	}
 
 #pragma endregion
 
-	m_dcConext->PSSetShader(m_DefaultPS, NULL, 0);
-	m_dcConext->VSSetShader(m_shaderVS, NULL, 0);
+	memcpy(p_Scene.pData, &p_Model.m_aniAnimaiton, sizeof(ANIMATION));
 
-	m_StarModel.Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, nullptr, 0, (float)dt.Delta());
+	m_dcConext->Unmap(m_pConstBufferAnimation_PS, 0);
 
+#pragma endregion
+}
+
+void DEMO_APP::MappingLighting(D3D11_MAPPED_SUBRESOURCE& p_Scene, LIGHTING& p_light)
+{
+	ZeroMemory(&p_Scene, sizeof(D3D11_MAPPED_SUBRESOURCE));
+
+	m_dcConext->Map(m_pConstBufferLight_PS, 0, D3D11_MAP_WRITE_DISCARD, NULL, &p_Scene);
+
+	m_lgLight = p_light;
+
+	memcpy(p_Scene.pData, &m_lgLight, sizeof(LIGHTING));
+
+	m_dcConext->Unmap(m_pConstBufferLight_PS, 0);
+}
+
+void DEMO_APP::RedrawSceneBuffer(D3D11_MAPPED_SUBRESOURCE& p_Scene, Scene& p_Matrix)
+{
+	////////////////////////////////////////////////////////////////////
+
+	ZeroMemory(&p_Scene, sizeof(D3D11_MAPPED_SUBRESOURCE));
+
+	m_dcConext->Map(m_pConstBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &p_Scene);
+
+	m_scnMatrix = p_Matrix;
+
+	memcpy(p_Scene.pData, &m_scnMatrix, sizeof(Scene));
+
+	m_dcConext->Unmap(m_pConstBuffer[SCENE], 0);
 }
 
 void DEMO_APP::UpdateSkyBox(XMFLOAT4X4& rot)
@@ -1152,13 +1237,12 @@ void DEMO_APP::UpdateSkyBox(XMFLOAT4X4& rot)
 	D3D11_MAPPED_SUBRESOURCE SceneResource;
 
 	XMMATRIX matrix = XMLoadFloat4x4(&SkyBox.m_objMatrix.m_mxConstMatrix);
-	//XMMATRIX rotation = XMLoadFloat4x4(&rot);
-	//XMMATRIX camera = XMLoadFloat4x4(&m_mxViewMatrix);
+
 #pragma region SkyBox ConstantBuffer
 
 	ZeroMemory(&resource, sizeof(resource));
 
-	m_dcConext->Map(SkyBox.m_pConstBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &resource);
+	m_dcConext->Map(m_pConstBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &resource);
 
 	//inversing the camera to set the position of the cube to the camera
 
@@ -1180,27 +1264,24 @@ void DEMO_APP::UpdateSkyBox(XMFLOAT4X4& rot)
 	matrix.r[3] = SkyPos;
 
 
-	XMStoreFloat4x4(&SkyBox.m_objMatrix.m_mxConstMatrix, matrix);
+	XMStoreFloat4x4(&m_objMatrix.m_mxConstMatrix, matrix);
 
-	memcpy(resource.pData, &SkyBox.m_objMatrix, sizeof(SkyBox.m_objMatrix));
+	memcpy(resource.pData, &m_objMatrix, sizeof(SkyBox.m_objMatrix));
 
-	m_dcConext->Unmap(SkyBox.m_pConstBuffer[OBJECT], 0);
+	m_dcConext->Unmap(m_pConstBuffer[OBJECT], 0);
 
 	//////////////////////////////////////////////////////////////////////
+	RedrawSceneBuffer(SceneResource, m_scnMatrix);
 
-	ZeroMemory(&SceneResource, sizeof(SceneResource));
-
-	m_dcConext->Map(SkyBox.m_pConstBuffer[SCENE], 0, D3D11_MAP_WRITE_DISCARD, NULL, &SceneResource);
-
-	memcpy(SceneResource.pData, &SceneMatrices, sizeof(SceneMatrices));
-
-	m_dcConext->Unmap(SkyBox.m_pConstBuffer[SCENE], 0);
 #pragma endregion
 
-	m_dcConext->PSSetShader(m_SkyboxPS, NULL, 0);
-	m_dcConext->VSSetShader(m_SkyboxVS, NULL, 0);
+	BufferInput input;
+	input.numPixelSlot = 0;
+	input.ConstPixel = nullptr;
+	input.numVertexSlot = 2;
+	input.ConstVertex = m_pConstBuffer;
 
-	SkyBox.Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, &m_pSkyBoxRasterState, 1, (float)dt.Delta());
+	DrawObj(&SkyBox, &input, m_SkyboxVS, m_SkyboxPS, &m_pSkyBoxRasterState, 1);
 
 	m_dcConext->ClearDepthStencilView(m_DepthView, D3D11_CLEAR_DEPTH, 1, 0);
 }
@@ -1222,6 +1303,44 @@ void DEMO_APP::CreateSkyBox(D3D11_SAMPLER_DESC * p_sampler)
 	XMStoreFloat4x4(&SkyBox.m_objMatrix.m_mxConstMatrix, temp);
 
 	//SkyBox.ScaleModel(1.0f);
+}
+
+void DEMO_APP::CreateConstBuffers()
+{
+	//Constant buffer
+	D3D11_BUFFER_DESC cBufferDesc;
+	cBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	cBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	cBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	cBufferDesc.ByteWidth = sizeof(Object);
+	cBufferDesc.MiscFlags = 0;
+
+	//subData
+	D3D11_SUBRESOURCE_DATA ConstantBufferData;
+	ConstantBufferData.pSysMem = &m_objMatrix;
+	ConstantBufferData.SysMemPitch = 0;
+	ConstantBufferData.SysMemSlicePitch = 0;
+
+	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBuffer[OBJECT]);
+
+	//Setting the scene buffer
+	cBufferDesc.ByteWidth = sizeof(Scene);
+	ConstantBufferData.pSysMem = &m_scnMatrix;
+
+	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBuffer[SCENE]);
+
+
+	cBufferDesc.ByteWidth = sizeof(ANIMATION);
+	ConstantBufferData.pSysMem = &m_aniAnimation;
+	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBufferAnimation_PS);
+
+
+	cBufferDesc.ByteWidth = sizeof(LIGHTING);
+	ConstantBufferData.pSysMem = &m_lgLight;
+
+
+	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBufferLight_PS);
+
 }
 
 bool DEMO_APP::CursorClientCheck(POINT curr)
@@ -1248,6 +1367,13 @@ bool DEMO_APP::ShutDown()
 {
 	// TODO: PART 1 STEP 6
 
+	//Releasing the Models
+
+	m_StarModel.Release();
+	Pyramid.Release();
+	Dorumon.Release();
+	SkyBox.Release();
+	DinoTiger.Release();
 
 	SAFE_RELEASE(m_shaderPS);
 	SAFE_RELEASE(m_shaderVS);
@@ -1255,11 +1381,17 @@ bool DEMO_APP::ShutDown()
 	SAFE_RELEASE(m_SkyboxPS);
 	SAFE_RELEASE(m_SkyboxVS);
 
+	SAFE_RELEASE(m_DLightPS);
+	SAFE_RELEASE(m_LightVS);
+
 	SAFE_RELEASE(m_pDepthState);
 	SAFE_RELEASE(m_DepthView);
 	SAFE_RELEASE(m_ZBuffer);
 
 	SAFE_RELEASE(m_pSkyBoxRasterState);
+
+	SAFE_RELEASE(m_pConstBuffer[0]);
+	SAFE_RELEASE(m_pConstBuffer[1]);
 	//depth perspective						 
 
 	// TODO: PART 1 STEP 2
@@ -1275,12 +1407,12 @@ bool DEMO_APP::ShutDown()
 	SAFE_RELEASE(m_dcConext);
 
 #if _DEBUG
-	m_dgDebug->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY);
+	m_dgDebug->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
 #endif
 
 	SAFE_RELEASE(m_dgDebug);
 
-	m_iDevice->Release();
+	SAFE_RELEASE(m_iDevice);
 
 	UnregisterClass(L"DirectXApplication", application);
 	return true;
@@ -1338,6 +1470,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			g_dcConext->OMSetRenderTargets(0, 0, 0);
 
 			// Release all outstanding references to the swap chain's buffers.
+			//g_DepthView->Release();
 			g_ZBuffer->Release();
 			g_pBackBuffer->Release();
 			g_pDepthState->Release();
@@ -1346,15 +1479,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 			g_dcConext->Flush();
 			HRESULT hr;
+
 			// Preserve the existing buffer count and format.
 			// Automatically choose the width and height to match the client rect for HWNDs.
 			hr = g_snSwapChain->ResizeBuffers(1, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
 
-			// Perform error handling here!
-
-
 			// Get buffer and create a render-target-view.
-
 			hr = g_snSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
 				(void**)&g_pBackBuffer);
 			// Perform error handling here!
@@ -1395,29 +1525,34 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 #pragma endregion
 
 #pragma region //Creation of the RasterizerState
+			RECT window;
+			GetClientRect(hWnd, &window);
+
 
 			D3D11_RECT windowRect[1];
 			windowRect[0].left = 0;
-			windowRect[0].right = temp.Width;
+			windowRect[0].right = window.right;
 			windowRect[0].top = 0;
-			windowRect[0].bottom = temp.Height;
+			windowRect[0].bottom = window.bottom;
 
 			g_dcConext->RSSetScissorRects(1, windowRect);
 #pragma endregion
-
 
 			g_dcConext->OMSetRenderTargets(1, &g_rtvRenderTargetView, g_DepthView);
 
 			// Set up the viewport.
 
-			m_vpViewPort.Width = (float)temp.Width;
-			m_vpViewPort.Height = (float)temp.Height;
+			m_vpViewPort.Width = (float)window.right;
+			m_vpViewPort.Height = (float)window.bottom;
 			m_vpViewPort.MinDepth = 0.0f;
 			m_vpViewPort.MaxDepth = 1.0f;
 			m_vpViewPort.TopLeftX = 0;
 			m_vpViewPort.TopLeftY = 0;
 			g_dcConext->RSSetViewports(1, &m_vpViewPort);
 
+			XMMATRIX projection;
+			projection = XMMatrixPerspectiveFovLH(FOV, (float)window.right / (float)window.bottom, ZNEAR, ZFAR);
+			XMStoreFloat4x4(&SceneMatrices.matrix_Projection, projection);
 		}
 
 	}

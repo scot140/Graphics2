@@ -15,12 +15,8 @@ Model::Model()
 	ZERO_OUT(m_pShaderResource);
 	ZERO_OUT(m_nMaxVerts);
 	ZERO_OUT(m_nMaxIndices);
-	ZERO_OUT(m_pConstBuffer[0]); // vertex Shader's constant buffers
-	ZERO_OUT(m_pConstBuffer[1]); //vertex Shader's constant buffers
-	ZERO_OUT(m_pConstBuffer_PS);
 	ZERO_OUT(m_pSamplerState);
 	ZERO_OUT(m_vsInput);
-
 	ZeroMemory(&m_aniAnimaiton, sizeof(ANIMATION));
 }
 
@@ -42,6 +38,16 @@ void Model::SetModelPosition(float x, float y, float z)
 	m_objMatrix.m_mxConstMatrix(3, 0) = x;
 	m_objMatrix.m_mxConstMatrix(3, 1) = y;
 	m_objMatrix.m_mxConstMatrix(3, 2) = z;
+}
+
+XMFLOAT3 Model::GetModelPosition()
+{
+	XMFLOAT3 pos;
+	pos.x = m_objMatrix.m_mxConstMatrix(3, 0);
+	pos.y = m_objMatrix.m_mxConstMatrix(3, 1);
+	pos.z = m_objMatrix.m_mxConstMatrix(3, 2);
+
+	return pos;
 }
 
 void Model::SetAnimation(float maxframe, float width)
@@ -76,7 +82,7 @@ void Model::loadVerts(unsigned int numVerts, INPUT_VERTEX* p_verts)
 	m_vsInput = p_verts;
 }
 
-void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const unsigned int* Indices, Scene* scnMatrix)
+void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const unsigned int* Indices)
 {
 	if (device == nullptr)
 	{
@@ -122,34 +128,6 @@ void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const u
 		device->CreateBuffer(&IndexBufferDesc, &InitIndexData, &m_pIndexBuffer);
 
 	}
-
-	//Constant buffer
-	D3D11_BUFFER_DESC cBufferDesc;
-	cBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	cBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	cBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	cBufferDesc.ByteWidth = sizeof(Object);
-	cBufferDesc.MiscFlags = 0;
-
-	//subData
-	D3D11_SUBRESOURCE_DATA ConstantBufferData;
-	ConstantBufferData.pSysMem = &m_objMatrix;
-	ConstantBufferData.SysMemPitch = 0;
-	ConstantBufferData.SysMemSlicePitch = 0;
-
-	device->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBuffer[OBJECT]);
-
-	//Setting the scene buffer
-	cBufferDesc.ByteWidth = sizeof(Scene);
-	ConstantBufferData.pSysMem = scnMatrix;
-
-	device->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBuffer[SCENE]);
-
-	cBufferDesc.ByteWidth = sizeof(ANIMATION);
-	ConstantBufferData.pSysMem = &m_aniAnimaiton;
-
-	device->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBuffer_PS);
-
 }
 
 void Model::CreateTexture(ID3D11Device* device, D3D11_SAMPLER_DESC* SamplerDesc, D3D11_TEXTURE2D_DESC* Texture, D3D11_SUBRESOURCE_DATA* SubResource)
@@ -176,13 +154,8 @@ void Model::CreateTexture(ID3D11Device* device, const wchar_t* filename, D3D11_S
 	CreateDDSTextureFromFile(device, filename, nullptr, &m_pShaderResource);
 }
 
-void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY p_Topology, ID3D11RasterizerState** p_rasterArray, unsigned int numRaster, float delta)
+void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY p_Topology, ID3D11RasterizerState** p_rasterArray, unsigned int numRaster)
 {
-	if (m_aniAnimaiton.maxFrame > 0)
-	{
-		UpdateAnimation(p_dcContext, delta);
-	}
-
 	if (m_pShaderResource)
 	{
 		p_dcContext->PSSetShaderResources(0, 1, &m_pShaderResource);
@@ -192,10 +165,6 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 	{
 		p_dcContext->PSSetSamplers(0, 1, &m_pSamplerState);
 	}
-
-	p_dcContext->VSSetConstantBuffers(0, 2, m_pConstBuffer);
-
-	p_dcContext->PSSetConstantBuffers(0, 1, &m_pConstBuffer_PS);
 
 	unsigned int stride = sizeof(INPUT_VERTEX);
 	unsigned int zero = 0;
@@ -238,43 +207,7 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 	}
 }
 
-void Model::UpdateAnimation(ID3D11DeviceContext* p_dcContext, float p_delta)
-{
-
-#pragma region Animation
-
-	D3D11_MAPPED_SUBRESOURCE TimerResource;
-	ZeroMemory(&TimerResource, sizeof(TimerResource));
-
-	p_dcContext->Map(m_pConstBuffer_PS, 0, D3D11_MAP_WRITE_DISCARD, NULL, &TimerResource);
-
-#pragma region FrameUpdate
-
-	delta += (float)p_delta;
-
-	if (delta >= 1)
-	{
-		m_aniAnimaiton.frame++;
-
-		if (m_aniAnimaiton.maxFrame <= m_aniAnimaiton.frame)
-		{
-			m_aniAnimaiton.frame = 0;
-		}
-
-		delta = 0;
-	}
-
-#pragma endregion
-
-	memcpy(TimerResource.pData, &m_aniAnimaiton, sizeof(m_aniAnimaiton));
-
-	p_dcContext->Unmap(m_pConstBuffer_PS, 0);
-
-#pragma endregion
-
-}
-
-Model::~Model()
+void Model::Release()
 {
 	if (m_pBuffer)
 	{
@@ -307,24 +240,14 @@ Model::~Model()
 	}
 
 
-	for (unsigned int i = 0; i < 2; i++)
-	{
-		if (m_pConstBuffer[i])
-		{
-			m_pConstBuffer[i]->Release();
-			m_pConstBuffer[i] = nullptr;
-		}
-	}
-
 	if (m_pIndexBuffer)
 	{
 		m_pIndexBuffer->Release();
 		m_pIndexBuffer = nullptr;
 	}
+}
 
-	if (m_pConstBuffer_PS)
-	{
-		m_pConstBuffer_PS->Release();
-		m_pConstBuffer_PS = nullptr;
-	}
+Model::~Model()
+{
+
 }

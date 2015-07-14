@@ -3,7 +3,7 @@ struct OUTPUT_VERTEX
 {
 	float4 projectedCoordinate : SV_POSITION;
 	float4 colorOut : COLOR;
-	float3 norm: NORM;
+	float3 normals: NORM;
 	float2 uvOut : UV;
 };
 
@@ -25,15 +25,14 @@ SamplerState filter: register(s0);
 
 float4 main(OUTPUT_VERTEX input) : SV_TARGET
 {
-	float3 normals = normalize(input.norm);
 
 	float4 diffuse = baseTexture.Sample(filter, input.uvOut);
 
 	float3 color;
 
-	color = diffuse * light.ambient;
+	float3 ratio = dot(-light.dir, input.normals);
 
-	color += saturate(dot(light.dir, input.norm)* light.diffuse * diffuse);
+		color = saturate(ratio * light.diffuse * diffuse);
 
 	return float4(color, diffuse.a);
 }
