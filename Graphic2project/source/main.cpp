@@ -20,6 +20,7 @@
 #include "Model.h"
 #include "Cube.h"
 #include "numbers_test.h"
+#include <algorithm>
 //#include <atlbase.h>
 
 using namespace std;
@@ -175,9 +176,13 @@ public:
 	Model DinoTiger;
 	Model Ground;
 
+	Model m_multiStarModel[3];
+
 	DEMO_APP(HINSTANCE hinst, WNDPROC proc);
 
 	void CreateStar(D3D11_SAMPLER_DESC * p_sampler);
+
+	void CreateStar(Model* star, unsigned int numStars, D3D11_SAMPLER_DESC * p_sampler);
 
 	void CreateObj(const char* file, Model& p_model, D3D11_SUBRESOURCE_DATA* p_data = nullptr, D3D11_TEXTURE2D_DESC* p_texture = nullptr, D3D11_SAMPLER_DESC* p_sampler = nullptr);
 
@@ -186,6 +191,10 @@ public:
 
 	void DrawObj(Model* p_model, BufferInput*p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size);
 	void DrawStar();
+	void DEMO_APP::DrawStar(Model* p_star); // only use for star models
+
+	void TransparentStarsDraw();
+
 	void UpdateSkyBox(XMFLOAT4X4& rot);
 	void CreateSkyBox(D3D11_SAMPLER_DESC * p_sampler);
 	void ChangeProjectionMatrix();
@@ -195,7 +204,7 @@ public:
 	void MappingPointLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, PtLight& p_light);
 	void RedrawSceneBuffer(D3D11_MAPPED_SUBRESOURCE& p_Scene, Scene& p_Matrix);
 	void CreateConstBuffers();
-	float BackAndForth(float _comp);
+	void BackAndForth(float _comp, float& p_trans);
 	int DistanceFormula(POINT LH, POINT RH);
 	void WorldCameraProjectionSetup();
 	bool Run();
@@ -414,8 +423,18 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	DefaultSamplerStateDesc(&SamplerDesc);
 
 	CreateStar(&SamplerDesc);
-
 	m_StarModel.ScaleModel(0.5);
+	CreateStar(m_multiStarModel, 3, &SamplerDesc);
+
+
+	temp = XMMatrixTranslation(0, 0, 2) * XMLoadFloat4x4(&m_multiStarModel[0].m_objMatrix.m_mxConstMatrix);
+
+	XMStoreFloat4x4(&m_multiStarModel[1].m_objMatrix.m_mxConstMatrix, temp);
+
+	temp = XMMatrixTranslation(0, 0, 1) * XMLoadFloat4x4(&m_multiStarModel[0].m_objMatrix.m_mxConstMatrix);
+
+	XMStoreFloat4x4(&m_multiStarModel[2].m_objMatrix.m_mxConstMatrix, temp);
+
 
 	CreateSkyBox(&SamplerDesc);
 
@@ -463,7 +482,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	CreateObj("resource/Models/Ground.obj", Ground, L"resource/Texture/Astral.dds", &SamplerDesc, L"resource/Texture/Night.dds");
 
 	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(-5, -0.5f, -5.0f);
-		
+
 	XMStoreFloat4x4(&Ground.m_objMatrix.m_mxConstMatrix, temp);
 
 	Ground.ScaleModel(10.0f);
@@ -772,6 +791,7 @@ bool DEMO_APP::Run()
 
 	DrawObj(&Pyramid, &input, m_shaderVS, m_shaderPS, rasterArray, 2);
 
+	TransparentStarsDraw();
 #pragma region Second Draw
 
 	if (displayWindow)
@@ -1151,6 +1171,246 @@ void DEMO_APP::CreateStar(D3D11_SAMPLER_DESC * p_sampler)
 
 }
 
+void DEMO_APP::CreateStar(Model* star, unsigned int numStars, D3D11_SAMPLER_DESC * p_sampler)
+{
+
+
+	INPUT_VERTEX* Star = new INPUT_VERTEX[22];
+
+#pragma region //Star
+	//white
+	Star[0].pos.x = 0;
+	Star[0].pos.y = 0;
+	Star[0].pos.z = 0;
+	Star[0].pos.w = 1;
+	Star[0].col = XMFLOAT4(1, 1, 1, 1);
+	//red
+	Star[1].pos.x = 0;
+	Star[1].pos.y = 1;
+	Star[1].pos.z = 0;
+	Star[1].pos.w = 1;
+	Star[1].col = XMFLOAT4(1, 0, 0, 0.5f);
+
+	//red
+	Star[2].pos.x = 0.3f;
+	Star[2].pos.y = 0.3f;
+	Star[2].pos.z = 0;
+	Star[2].pos.w = 1;
+	Star[2].col = XMFLOAT4(1, 0, 0, 0.5f);
+
+	//blue
+	Star[3].pos.x = 0.7f;
+	Star[3].pos.y = 0.3f;
+	Star[3].pos.z = 0;
+	Star[3].pos.w = 1;
+	Star[3].col = XMFLOAT4(0, 0, 1, 0.5f);
+
+	//blue
+	Star[4].pos.x = 0.4f;
+	Star[4].pos.y = -0.2f;
+	Star[4].pos.z = 0;
+	Star[4].pos.w = 1;
+	Star[4].col = XMFLOAT4(0, 0, 1, 0.5f);
+
+	//green
+	Star[5].pos.x = 0.4f;
+	Star[5].pos.y = -0.7f;
+	Star[5].pos.z = 0;
+	Star[5].pos.w = 1;
+	Star[5].col = XMFLOAT4(0, 0, 1, 0.5f);
+
+	//green
+	Star[6].pos.x = 0;
+	Star[6].pos.y = -0.4f;
+	Star[6].pos.z = 0;
+	Star[6].pos.w = 1;
+	Star[6].col = XMFLOAT4(0, 0, 1, 0.5f);
+
+	//yellow
+	Star[7].pos.x = -0.4f;
+	Star[7].pos.y = -0.7f;
+	Star[7].pos.z = 0;
+	Star[7].pos.w = 1;
+	Star[7].col = XMFLOAT4(1, 1, 0, 0.5f);
+
+	//yellow
+	Star[8].pos.x = -0.4f;
+	Star[8].pos.y = -0.2f;
+	Star[8].pos.z = 0;
+	Star[8].pos.w = 1;
+	Star[8].col = XMFLOAT4(1, 1, 0, 0.5f);
+
+	//cyan
+	Star[9].pos.x = -0.7f;
+	Star[9].pos.y = 0.3f;
+	Star[9].pos.z = 0;
+	Star[9].pos.w = 1;
+	Star[9].col = XMFLOAT4(0, 1, 1, 0.5f);
+
+	//cyan
+	Star[10].pos.x = -0.3f;
+	Star[10].pos.y = 0.3f;
+	Star[10].pos.z = 0;
+	Star[10].pos.w = 1;
+	Star[10].col = XMFLOAT4(0, 1, 1, 0.5f);
+
+	//white
+	Star[11].pos.x = 0;
+	Star[11].pos.y = 0;
+	Star[11].pos.z = 0.5f;
+	Star[11].pos.w = 1;
+	Star[11].col = XMFLOAT4(1, 1, 1, 0.5f);
+
+	//red
+	Star[12].pos.x = 0;
+	Star[12].pos.y = 1;
+	Star[12].pos.z = 0.5f;
+	Star[12].pos.w = 1;
+	Star[12].col = XMFLOAT4(1, 0, 0, 0.5f);
+
+	//cyan
+	Star[13].pos.x = -0.3f;
+	Star[13].pos.y = 0.3f;
+	Star[13].pos.z = 0.5f;
+	Star[13].pos.w = 1;
+	Star[13].col = XMFLOAT4(0, 1, 1, 0.5f);
+
+	//cyan
+	Star[14].pos.x = -0.7f;
+	Star[14].pos.y = 0.3f;
+	Star[14].pos.z = 0.5f;
+	Star[14].pos.w = 1;
+	Star[14].col = XMFLOAT4(0, 1, 1, 0.5f);
+
+	//yelloe
+	Star[15].pos.x = -0.4f;
+	Star[15].pos.y = -0.2f;
+	Star[15].pos.z = 0.5f;
+	Star[15].pos.w = 1;
+	Star[15].col = XMFLOAT4(1, 1, 0, 0.5f);
+
+	//yellow
+	Star[16].pos.x = -0.4f;
+	Star[16].pos.y = -0.7f;
+	Star[16].pos.z = 0.5f;
+	Star[16].pos.w = 1;
+	Star[16].col = XMFLOAT4(1, 1, 0, 0.5f);
+
+	//green
+	Star[17].pos.x = 0;
+	Star[17].pos.y = -0.4f;
+	Star[17].pos.z = 0.5f;
+	Star[17].pos.w = 1;
+	Star[17].col = XMFLOAT4(0, 1, 0, 0.5f);
+
+	//green
+	Star[18].pos.x = 0.4f;
+	Star[18].pos.y = -0.7f;
+	Star[18].pos.z = 0.5f;
+	Star[18].pos.w = 1;
+	Star[18].col = XMFLOAT4(0, 1, 0, 0.5f);
+
+
+	//wblue
+	Star[19].pos.x = 0.4f;
+	Star[19].pos.y = -0.2f;
+	Star[19].pos.z = 0.5f;
+	Star[19].pos.w = 1;
+	Star[19].col = XMFLOAT4(0, 0, 1, 0.5f);
+
+	//blue
+	Star[20].pos.x = 0.7f;
+	Star[20].pos.y = 0.3f;
+	Star[20].pos.z = 0.5f;
+	Star[20].pos.w = 1;
+	Star[20].col = XMFLOAT4(0, 0, 1, 0.5f);
+
+	//red
+
+	Star[21].pos.x = 0.3f;
+	Star[21].pos.y = 0.3f;
+	Star[21].pos.z = 0.5f;
+	Star[21].pos.w = 1;
+	Star[21].col = XMFLOAT4(0, 1, 0, 0.5f);
+
+
+
+#pragma endregion
+
+#pragma region IndexBuffer
+	int maxIndices = 120;
+	unsigned int indices[120] =
+	{
+		//front
+		0, 1, 2,
+		0, 2, 3,
+		0, 3, 4,
+		0, 4, 5,
+		0, 5, 6,
+		0, 6, 7,
+		0, 7, 8,
+		0, 8, 9,
+		0, 9, 10,
+		0, 10, 1,
+		//back
+		11, 12, 13,
+		11, 13, 14,
+		11, 14, 15,
+		11, 15, 16,
+		11, 16, 17,
+		11, 17, 18,
+		11, 18, 19,
+		11, 19, 20,
+		11, 20, 21,
+		11, 21, 12,
+		//sides
+
+		//top
+		1, 12, 2,
+		12, 21, 2,
+		12, 1, 13,
+		1, 10, 13,
+		//left upper
+		2, 21, 3,
+		21, 20, 3,
+		// right upper
+		13, 10, 14,
+		10, 9, 14,
+		//B_Right upper
+		14, 9, 15,
+		9, 8, 15,
+		//B_Left upper
+		3, 20, 4,
+		20, 19, 4,
+
+		//Left bottom
+		4, 19, 5,
+		19, 18, 5,
+		//Right bottom
+		15, 8, 7,
+		16, 15, 7,
+		//B_right bottom
+		6, 17, 16,
+		7, 6, 16,
+		//B_left bottom
+		17, 6, 5,
+		17, 5, 18,
+	};
+#pragma endregion
+
+	for (unsigned int i = 0; i < numStars; i++)
+	{
+		star[i].loadVerts(22, Star);
+
+		star[i].CreateBuffers(m_iDevice, maxIndices, indices);
+
+		XMMATRIX temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 2, 0);
+
+		XMStoreFloat4x4(&star[i].m_objMatrix.m_mxConstMatrix, temp);
+	}
+
+}
+
 void DEMO_APP::CreateObj(const char* file, Model& p_model, D3D11_SUBRESOURCE_DATA* p_data, D3D11_TEXTURE2D_DESC* p_texture, D3D11_SAMPLER_DESC* p_sampler)
 {
 	INPUT_VERTEX* ObjVerts = nullptr;
@@ -1212,7 +1472,7 @@ void DEMO_APP::DrawStar()
 
 	matrix = XMMatrixRotationY((float)dt.Delta()) * matrix;
 
-	ptTransX += BackAndForth(matrix.r[3].m128_f32[0]);
+	BackAndForth(matrix.r[3].m128_f32[0], ptTransX);
 
 	matrix *= XMMatrixTranslation(ptTransX, 0, 0);
 
@@ -1236,6 +1496,99 @@ void DEMO_APP::DrawStar()
 
 	//m_StarModel.Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, nullptr, 0, (float)dt.Delta());
 
+}
+
+void DEMO_APP::DrawStar(Model* p_star)
+{
+	D3D11_MAPPED_SUBRESOURCE resource;
+	D3D11_MAPPED_SUBRESOURCE SceneResource;
+	XMMATRIX matrix;
+
+#pragma region Star constantBuffer
+
+
+	matrix = XMLoadFloat4x4(&p_star->m_objMatrix.m_mxConstMatrix);
+
+	//matrix = XMMatrixRotationY((float)dt.Delta()) * matrix;
+
+	//ptTransX += BackAndForth(matrix.r[3].m128_f32[0]);
+
+	//matrix *= XMMatrixTranslation(ptTransX, 0, 0);
+
+	XMStoreFloat4x4(&p_star->m_objMatrix.m_mxConstMatrix, matrix);
+
+	MappingObjMatrix(resource, p_star->m_objMatrix);
+
+
+	//////////////////////////////////////////////////////////////////////
+	RedrawSceneBuffer(SceneResource, m_scnMatrix);
+#pragma endregion
+
+	BufferInput input;
+	ZERO_OUT(input);
+	input.ConstVertex = m_pConstBuffer;
+	input.numVertexSlot = 2;
+	DrawObj(p_star, &input, m_shaderVS, m_DefaultPS, nullptr, 0);
+}
+
+void DEMO_APP::TransparentStarsDraw()
+{
+	XMMATRIX inverseCopy = XMLoadFloat4x4(&m_mxViewMatrix);
+
+	//inverseCopy = XMMatrixInverse(nullptr, inverseCopy);
+
+	XMVECTOR camPos = inverseCopy.r[3];
+
+	XMVECTOR Starpos[3];
+
+	//getting the models position
+	Starpos[0] = camPos - XMLoadFloat3(&m_multiStarModel[0].GetModelPosition());
+	Starpos[1] = camPos - XMLoadFloat3(&m_multiStarModel[1].GetModelPosition());
+	Starpos[2] = camPos - XMLoadFloat3(&m_multiStarModel[2].GetModelPosition());
+
+	XMFLOAT3 result[3];
+	XMFLOAT3 Copyresult[3];
+	vector<float> resultList;
+
+	XMStoreFloat3(&result[0], XMVector3Length(Starpos[0]));
+	resultList.push_back(result[0].x);
+
+	XMStoreFloat3(&result[1], XMVector3Length(Starpos[1]));
+	resultList.push_back(result[1].x);
+
+	XMStoreFloat3(&result[2], XMVector3Length(Starpos[2]));
+	resultList.push_back(result[2].x);
+
+	unsigned int oldIndex = 0;
+
+	vector<unsigned int> store;
+
+
+
+
+#pragma region Sorting Needs work
+
+
+	std::sort(resultList.begin(), resultList.end());
+
+
+	for (unsigned int arrayIndex = 0; arrayIndex < 3; arrayIndex++)
+	{
+		for (unsigned int i = 0; i < resultList.size(); i++)
+		{
+			if (resultList[arrayIndex] == result[i].x)
+			{
+				store.push_back(i);
+				break;
+			}
+		}
+	}
+#pragma endregion
+
+	for (int i = (store.size() - 1); i >= 0; --i)
+	{
+		DrawStar(&m_multiStarModel[store[i]]);
+	}
 }
 
 void DEMO_APP::MappingObjMatrix(D3D11_MAPPED_SUBRESOURCE& p_Scene, Object& p_Matrix)
@@ -1327,25 +1680,31 @@ void DEMO_APP::RedrawSceneBuffer(D3D11_MAPPED_SUBRESOURCE& p_Scene, Scene& p_Mat
 	m_dcConext->Unmap(m_pConstBuffer[SCENE], 0);
 }
 
-float DEMO_APP::BackAndForth(float _comp)
+void DEMO_APP::BackAndForth(float _comp, float& p_trans)
 {
+	bool lastFrame = flip;
 
-	if (_comp <= -1)
+	if (_comp <= -2)
 	{
 		flip = true;
 	}
-	else if (_comp >= 0.5f)
+	else if (_comp >= 2)
 	{
 		flip = false;
 	}
 
-	if (flip)
+	if (lastFrame != flip)
 	{
-		return (float)dt.Delta() / 50;
+		p_trans = 0.0000006;
+	}
+	else if (flip)
+	{
+
+		p_trans += (float)dt.Delta() / 50;
 	}
 	else
 	{
-		return (float)-dt.Delta() / 50;
+		p_trans += (float)-dt.Delta() / 50;
 	}
 }
 
