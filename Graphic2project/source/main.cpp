@@ -27,8 +27,10 @@ using namespace std;
 
 // BEGIN PART 1
 // TODO: PART 1 STEP 1a
+
 //#include <d3d11.h>
 //#pragma comment(lib, "d3d11.lib")
+
 // TODO: PART 1 STEP 1b
 #include "DirectX_Helpers.h"
 
@@ -54,9 +56,11 @@ using namespace std;
 #define RIGHT				2
 #define LEFT				3
 #define SAFE_RELEASE(x) if(x) { x->Release(); x = nullptr; }
+
 //************************************************************
 //************ SIMPLE WINDOWS APP CLASS **********************
 //************************************************************
+
 IDXGISwapChain* g_snSwapChain;
 ID3D11DepthStencilState * g_pDepthState;
 ID3D11DepthStencilView* g_DepthView;
@@ -112,6 +116,7 @@ class DEMO_APP
 
 	ID3D11PixelShader* m_PLightPS;
 	ID3D11PixelShader* m_MultiTexturePS;
+
 	//depth perspective
 	ID3D11Texture2D* m_ZBuffer;
 	ID3D11DepthStencilView* m_DepthView;
@@ -123,16 +128,19 @@ class DEMO_APP
 	ID3D11RasterizerState* m_pSkyBoxRasterState;
 	ID3D11RasterizerState* m_pCuberaster;
 	ID3D11Debug *m_dgDebug;
+
 	//camera
+
 	//Math
+
 	XMFLOAT4X4 m_mxWorldMatrix;
 	XMFLOAT4X4 m_mxViewMatrix;
-
 
 	XMFLOAT4X4 m_mxProjectonMatrix;
 
 	XMFLOAT4X4 m_mxMiniViewMatrix;
 	XMFLOAT4X4 m_mxMiniProjectionMatrix;
+
 	//misc
 
 	XMFLOAT4X4 rotation;
@@ -232,7 +240,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	ShowWindow(window, SW_SHOW);
 	//********************* END WARNING ************************//
-#pragma endregion 
+#pragma endregion
 
 	//const D3D_FEATURE_LEVEL Feature = D3D_FEATURE_LEVEL_10_0;
 
@@ -392,7 +400,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 
 	//DirectionLight
-	DirectionLight.dir = XMFLOAT3(1, 1, 0);
+	DirectionLight.dir = XMFLOAT3(-1, -1, 0);
 	DirectionLight.ambient = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	DirectionLight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -413,7 +421,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	Pyramid.SetAnimation(4, (float)numbers_test_width);
 
-	CreateObj("resource/Models/Cube.obj", Pyramid, L"resource/Texture/numbers_test.dds", &SamplerDesc);
+	CreateObj("resource/Models/test pyramid.obj", Pyramid, L"resource/Texture/numbers_test.dds", &SamplerDesc);
 
 	temp = XMMatrixTranslation(1, 0, 0) * XMLoadFloat4x4(&m_mxWorldMatrix);
 
@@ -454,13 +462,11 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	CreateObj("resource/Models/Ground.obj", Ground, L"resource/Texture/Astral.dds", &SamplerDesc, L"resource/Texture/Night.dds");
 
-	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, -0.5f, 0);
-
-	temp = XMMatrixRotationY(XMConvertToRadians(90)) * temp;
-
+	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(-5, -0.5f, -5.0f);
+		
 	XMStoreFloat4x4(&Ground.m_objMatrix.m_mxConstMatrix, temp);
 
-	Ground.ScaleModel(2.0f);
+	Ground.ScaleModel(10.0f);
 
 #pragma endregion
 

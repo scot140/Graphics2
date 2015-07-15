@@ -221,13 +221,17 @@ bool ObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_I
 
 			for (unsigned int i = 0; i < 3; i++)
 			{
+
 				helper.uvIndex = uvIndex[i] - 1;
 				helper.vertsIndex = vertexIndex[i] - 1;
 				helper.normIndex = normalIndex[i] - 1;
 				objectIndices.push_back(helper);
+
 			}
 		}
 	}
+
+	fclose(myfile);
 #pragma endregion
 
 	bool push = true;

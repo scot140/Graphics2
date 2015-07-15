@@ -6,7 +6,6 @@ struct INPUT_VERTEX
 	float4 col : COLOR;
 	float3 norm: NORM;
 	float2 uv : UV;
-
 };
 
 struct OUTPUT_VERTEX

@@ -73,13 +73,13 @@
     <FxCompile Include="DirectionalLight_PS.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
-    <FxCompile Include="Light_VertexShader.hlsl">
-      <Filter>Shader</Filter>
-    </FxCompile>
     <FxCompile Include="source\PointLightShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="source\PS_MultiTexture.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="Light_VertexShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>
