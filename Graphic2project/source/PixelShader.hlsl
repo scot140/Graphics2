@@ -20,7 +20,9 @@ cbuffer TIMER : register(b0)
 float4 main(OUTPUT_VERTEX input) : SV_TARGET
 {
 	//misc math for finding out the width of the each frame
-	float2 uv = input.uvOut;
+	float2 uv = (float2)0;
+	uv.x = input.uvOut.x;
+
 	if (width > 1)
 	{
 		uv.x /= maxFrame;
@@ -29,9 +31,14 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 		//uv.y += (frame * framelength) / width;
 	}
 
+	uv.y = input.uvOut.y;
+
+	uv = float2(uv.x, input.uvOut.y);
+
+
 	float4 temp = baseTexture.Sample(filter, uv);
 
 
-	return temp;
+		return temp;
 
 }

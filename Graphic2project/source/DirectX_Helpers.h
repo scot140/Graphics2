@@ -278,12 +278,5 @@ bool ObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_I
 		(*test)[i].col = XMFLOAT4(1, 1, 0, 0);
 	}
 
-	//for (unsigned int i = 0; i < normalIndices.size(); i++)
-	//{
-	//	unsigned int nIndex = normalIndices[i];
-	//	XMFLOAT3 norms = normals[nIndex - 1];
-	//	p_verts[i] = norms;
-	//}
-
 	return true;
 }

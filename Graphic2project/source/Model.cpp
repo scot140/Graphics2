@@ -147,19 +147,36 @@ void Model::CreateTexture(ID3D11Device* device, D3D11_SAMPLER_DESC* SamplerDesc,
 
 }
 
-void Model::CreateTexture(ID3D11Device* device, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler)
+void Model::CreateTexture(ID3D11Device* device, const wchar_t* filename, const wchar_t* Secondfilename, D3D11_SAMPLER_DESC* p_sampler)
 {
 	device->CreateSamplerState(p_sampler, &m_pSamplerState);
 
 	CreateDDSTextureFromFile(device, filename, nullptr, &m_pShaderResource);
+
+	if (Secondfilename != nullptr)
+	{
+		CreateDDSTextureFromFile(device, Secondfilename, nullptr, &m_pSecondShaderResource);
+	}
 }
 
 void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY p_Topology, ID3D11RasterizerState** p_rasterArray, unsigned int numRaster)
 {
-	if (m_pShaderResource)
+
+	if (m_pSecondShaderResource)
+	{
+		ID3D11ShaderResourceView* ShaderResourceArray[2];
+		ShaderResourceArray[0] = m_pShaderResource;
+		ShaderResourceArray[1] = m_pSecondShaderResource;
+
+		p_dcContext->PSSetShaderResources(0, 2, ShaderResourceArray);
+	}
+	else if (m_pShaderResource)
 	{
 		p_dcContext->PSSetShaderResources(0, 1, &m_pShaderResource);
 	}
+
+
+
 
 	if (m_pSamplerState)
 	{
