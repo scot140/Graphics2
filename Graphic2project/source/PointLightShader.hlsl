@@ -29,42 +29,17 @@ SamplerState filter: register(s0);
 
 float4 main(OUTPUT_VERTEX input) : SV_TARGET
 {
-	float4 color = float4(0, 0, 0, 1);
-	//
-	float4 diffuse = baseTexture.Sample(filter, input.uvOut);
+	float4 color = baseTexture.Sample(filter, input.uvOut);
 
-	float direction = length(light.pos - input.WorldPos);
+	float4 lightDirection = normalize(light.pos - input.WorldPos);
 
-	float4 ambient = diffuse * light.ambient;
+	float ratio = saturate(dot(lightDirection.xyz, input.norm));
 
-		// if the distance bewteen the pixel is with in  the lights touch
-		if (direction > light.range)
-		{
-			return float4(ambient.rgb, diffuse.a);
-		}
+	float atten = 1.0 - saturate(length(light.pos - input.WorldPos) / light.range);
 
-	//color = diffuse;
+	atten = pow(atten, light.power);
 
-	// normalizing the direction
-	float4 normDistance = (light.pos - input.WorldPos) / direction;
+	float4 finalColor = ratio * light.ambient * color * atten;
 
-		///Calculating the attenuation
-		float4 atten = 1.0 - saturate(direction / light.range);
-		atten = pow(atten, light.power);
-
-
-	/// finding the percentage of the this pixel and the light
-	float ratio = dot(normDistance.xyz, input.norm);
-
-
-	///adding the attenuation if you are are with  in the light
-	if (ratio > 0.0f)
-	{
-		color += ratio * diffuse * light.diffuse;
-
-		color /= atten.x + (atten.y * direction) + (atten.z *(direction*direction));
-	}
-
-	float4 Finalcolor = saturate(color + ambient);
-		return float4(Finalcolor.rgb, diffuse.a);
+	return float4(finalColor.xyz,1);
 }

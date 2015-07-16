@@ -7,7 +7,7 @@
 #define FOV				65
 #define ASPECT_RATIO  (RASTER_WIDTH/RASTER_HEIGHT)
 #define RASTER_NUMPIXEL (RASTER_WIDTH * RASTER_HEIGHT)
-
+#define ALIGN_REGISTER _declspec(align(16))
 #define ZERO_OUT(x) ZeroMemory(&x,sizeof(x));
 
 #include <d3d11.h>
@@ -58,3 +58,12 @@ struct PtLight
 	XMFLOAT2 padding;
 };
 
+struct SptLight
+{
+	float power;
+	ALIGN_REGISTER XMFLOAT3 coneDir;
+	ALIGN_REGISTER float coneWidth; // use Radians please do not forget
+	ALIGN_REGISTER XMFLOAT4 pos;
+	ALIGN_REGISTER XMFLOAT4 color;
+	XMFLOAT3 padding;
+};

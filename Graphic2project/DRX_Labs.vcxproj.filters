@@ -82,5 +82,8 @@
     <FxCompile Include="Light_VertexShader.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
+    <FxCompile Include="source\PShader_SpotLight.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

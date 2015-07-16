@@ -43,6 +43,7 @@ using namespace std;
 #include "../Skybox_PS.csh"
 #include "../DirectionalLight_PS.csh"
 #include "../Light_VertexShader.csh"
+#include "../PShader_SpotLight.csh"
 #include "../PointLightShader.csh"
 #include "../PS_MultiTexture.csh"
 
@@ -118,10 +119,12 @@ class DEMO_APP
 	ID3D11PixelShader* m_PLightPS;
 	ID3D11PixelShader* m_MultiTexturePS;
 
+	ID3D11PixelShader* m_SpLightPS;
 	//depth perspective
 	ID3D11Texture2D* m_ZBuffer;
 	ID3D11DepthStencilView* m_DepthView;
 	ID3D11DepthStencilState * m_pDepthState;
+	ID3D11PixelShader * m_PScurrentShader;
 
 	//Blending
 	ID3D11BlendState* m_pBlendState;
@@ -156,12 +159,17 @@ class DEMO_APP
 	Object m_objMatrix;
 	PtLight m_plgLight;
 	LIGHTING m_lgLight;
+	SptLight m_sptLight;
+
 	Scene m_scnMatrix;
 	ANIMATION m_aniAnimation;
 	ID3D11Buffer* m_pConstBufferAnimation_PS;
 	ID3D11Buffer* m_pConstBuffer[2];
 	ID3D11Buffer* m_pConstBufferLight_PS;
 	ID3D11Buffer* m_pCBufferPointLight_PS;
+	ID3D11Buffer* m_pCBufferSpotLight_PS;
+	BufferInput ModelPixelInput;
+
 	float ptTransX = 0;
 	bool flip = false;
 
@@ -169,12 +177,15 @@ public:
 
 	LIGHTING DirectionLight;
 	PtLight PointLight;
+	SptLight SpotLight;
+
 	Model m_StarModel;
 	Model Pyramid;
 	Model Dorumon;
 	Model SkyBox;
 	Model DinoTiger;
 	Model Ground;
+	Model DoruGreymon;
 
 	Model m_multiStarModel[3];
 
@@ -188,6 +199,7 @@ public:
 
 	void CreateObj(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler, const wchar_t* Secondfilename = nullptr);
 
+	void CreateObjCube(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler, const wchar_t* Secondfilename);
 
 	void DrawObj(Model* p_model, BufferInput*p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size);
 	void DrawStar();
@@ -202,6 +214,7 @@ public:
 	void MappingAnimation(D3D11_MAPPED_SUBRESOURCE& p_Scene, Model& p_Model);
 	void MappingLighting(D3D11_MAPPED_SUBRESOURCE& p_Scene, LIGHTING& p_light);
 	void MappingPointLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, PtLight& p_light);
+	void MappingSpotLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, SptLight& p_light);
 	void RedrawSceneBuffer(D3D11_MAPPED_SUBRESOURCE& p_Scene, Scene& p_Matrix);
 	void CreateConstBuffers();
 	void BackAndForth(float _comp, float& p_trans);
@@ -394,6 +407,8 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	m_iDevice->CreatePixelShader(DirectionalLight_PS, sizeof(DirectionalLight_PS), NULL, &m_DLightPS);
 	m_iDevice->CreateVertexShader(Light_VertexShader, sizeof(Light_VertexShader), NULL, &m_LightVS);
 	m_iDevice->CreatePixelShader(PointLightShader, sizeof(PointLightShader), NULL, &m_PLightPS);
+	m_iDevice->CreatePixelShader(PShader_SpotLight, sizeof(PShader_SpotLight), NULL, &m_SpLightPS);
+
 	m_iDevice->CreatePixelShader(PS_MultiTexture, sizeof(PS_MultiTexture), NULL, &m_MultiTexturePS);
 
 	// TODO: PART 2 STEP 8a
@@ -470,26 +485,44 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	XMStoreFloat4x4(&DinoTiger.m_objMatrix.m_mxConstMatrix, temp);
 
 	DinoTiger.ScaleModel(0.5f);
+
 #pragma endregion
 
 #pragma region Creating Dorugreymon
+	CreateObj("resource/Models/DoruGreymon.obj", DoruGreymon, L"resource/Texture/DoruGreymon.dds", &SamplerDesc);
 
+	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 0, 6.45f);
 
+	temp = XMMatrixRotationY(XMConvertToRadians(180)) * temp;
+
+	XMStoreFloat4x4(&DoruGreymon.m_objMatrix.m_mxConstMatrix, temp);
+
+	DoruGreymon.ScaleModel(0.75f);
 #pragma endregion
 
 #pragma region Creating a Ground
 
-	CreateObj("resource/Models/Ground.obj", Ground, L"resource/Texture/Astral.dds", &SamplerDesc, L"resource/Texture/Night.dds");
+	CreateObjCube("resource/Models/Ground1.obj", Ground, L"resource/Texture/Astral.dds", &SamplerDesc, L"resource/Texture/Night.dds");
 
-	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(-5, -0.5f, -5.0f);
+	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0.0f, -0.05f, 0.0f);
 
 	XMStoreFloat4x4(&Ground.m_objMatrix.m_mxConstMatrix, temp);
 
-	Ground.ScaleModel(10.0f);
+	Ground.ScaleModel(3.0f);
 
 #pragma endregion
 
+
+	//Getting the cursor pos
 	GetCursorPos(&startPoint);
+
+	//Setting the current pixelshader to Direction light
+	m_PScurrentShader = m_DLightPS;
+	//BufferInput
+	ModelPixelInput.numPixelSlot = 1;
+	ModelPixelInput.ConstPixel = &m_pConstBufferLight_PS;
+	ModelPixelInput.ConstVertex = m_pConstBuffer;
+	ModelPixelInput.numVertexSlot = 2;
 
 	/// debug
 #if _DEBUG
@@ -557,6 +590,35 @@ bool DEMO_APP::Run()
 
 	distance.x = 0;
 	distance.y = 0;
+	if (GetAsyncKeyState('1') & 0x1)
+	{
+		m_PScurrentShader = m_DLightPS;
+		//BufferInput
+		ModelPixelInput.numPixelSlot = 1;
+		ModelPixelInput.ConstPixel = &m_pConstBufferLight_PS;
+		ModelPixelInput.ConstVertex = m_pConstBuffer;
+		ModelPixelInput.numVertexSlot = 2;
+	}
+	else if (GetAsyncKeyState('2') & 0x1)
+	{
+		m_PScurrentShader = m_PLightPS;
+		//BufferInput
+		ModelPixelInput.numPixelSlot = 1;
+		ModelPixelInput.ConstPixel = &m_pCBufferPointLight_PS;
+		ModelPixelInput.ConstVertex = m_pConstBuffer;
+		ModelPixelInput.numVertexSlot = 2;
+
+	}
+	else if (GetAsyncKeyState('3') & 0x1)
+	{
+		m_PScurrentShader = m_SpLightPS;
+		//BufferInput
+		ModelPixelInput.numPixelSlot = 1;
+		ModelPixelInput.ConstPixel = &m_pCBufferSpotLight_PS;
+		ModelPixelInput.ConstVertex = m_pConstBuffer;
+		ModelPixelInput.numVertexSlot = 2;
+	}
+
 
 	if (GetAsyncKeyState('W'))
 	{
@@ -667,9 +729,6 @@ bool DEMO_APP::Run()
 		SkyBox.m_objMatrix.m_mxConstMatrix.m[3][0] = inverseCopy.r[3].m128_f32[0];
 		SkyBox.m_objMatrix.m_mxConstMatrix.m[3][1] = inverseCopy.r[3].m128_f32[1];
 		SkyBox.m_objMatrix.m_mxConstMatrix.m[3][2] = inverseCopy.r[3].m128_f32[2];
-
-		int x;
-		x = 0;
 	}
 #pragma endregion
 
@@ -677,20 +736,32 @@ bool DEMO_APP::Run()
 	D3D11_MAPPED_SUBRESOURCE SceneResource;
 	XMMATRIX matrix;
 	BufferInput input;
-
 	RedrawSceneBuffer(SceneResource, SceneMatrices);
+
 
 	UpdateSkyBox(rotation);
 
 	DrawStar();
 
+	MappingLighting(resource, DirectionLight);
+
 	XMFLOAT3 pos = m_StarModel.GetModelPosition();
 
 	PointLight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 1);
-	PointLight.power = 256;
-	PointLight.range = 2;
-	PointLight.color = XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f);
+	PointLight.power = 0;
+	PointLight.range = 50;
+	PointLight.color = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	PointLight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+
+	MappingPointLight(resource, PointLight);
+
+	SpotLight.pos = XMFLOAT4(0,2,0, 1);
+	SpotLight.power = 64;
+	SpotLight.coneDir = XMFLOAT3(0, -1, 0);
+	SpotLight.coneWidth = cos(XMConvertToRadians(20.0f));
+	SpotLight.color = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+
+	MappingSpotLight(resource, SpotLight);
 
 #pragma region Dorumon constantBuffer
 	matrix = XMLoadFloat4x4(&Dorumon.m_objMatrix.m_mxConstMatrix);
@@ -704,15 +775,9 @@ bool DEMO_APP::Run()
 
 	//////////////////////////////////////////////////////////////////////
 
-	MappingPointLight(resource, PointLight);
 #pragma endregion
 
-	input.numPixelSlot = 1;
-	input.ConstPixel = &m_pCBufferPointLight_PS;
-	input.ConstVertex = m_pConstBuffer;
-	input.numVertexSlot = 2;
-
-	DrawObj(&Dorumon, &input, m_LightVS, m_PLightPS, nullptr, 0);
+	DrawObj(&Dorumon, &ModelPixelInput, m_LightVS, m_PScurrentShader, nullptr, 0);
 
 #pragma region DinoTiger constantBuffer
 
@@ -727,16 +792,28 @@ bool DEMO_APP::Run()
 
 	//////////////////////////////////////////////////////////////////////
 
-	MappingLighting(resource, DirectionLight);
 
 #pragma endregion
 
-	input.numPixelSlot = 1;
-	input.ConstPixel = &m_pConstBufferLight_PS;
-	input.ConstVertex = m_pConstBuffer;
-	input.numVertexSlot = 2;
+	DrawObj(&DinoTiger, &ModelPixelInput, m_LightVS, m_PScurrentShader, nullptr, 0);
 
-	DrawObj(&DinoTiger, &input, m_LightVS, m_DLightPS, nullptr, 0);
+#pragma region DoruGreymon constantBuffer
+
+	matrix = XMLoadFloat4x4(&DoruGreymon.m_objMatrix.m_mxConstMatrix);
+
+
+
+	XMStoreFloat4x4(&DoruGreymon.m_objMatrix.m_mxConstMatrix, matrix);
+
+
+	MappingObjMatrix(resource, DoruGreymon.m_objMatrix);
+
+	//////////////////////////////////////////////////////////////////////
+
+
+#pragma endregion
+
+	DrawObj(&DoruGreymon, &ModelPixelInput, m_LightVS, m_PScurrentShader, nullptr, 0);
 
 #pragma region Ground
 	matrix = XMLoadFloat4x4(&Ground.m_objMatrix.m_mxConstMatrix);
@@ -792,6 +869,7 @@ bool DEMO_APP::Run()
 	DrawObj(&Pyramid, &input, m_shaderVS, m_shaderPS, rasterArray, 2);
 
 	TransparentStarsDraw();
+
 #pragma region Second Draw
 
 	if (displayWindow)
@@ -801,7 +879,6 @@ bool DEMO_APP::Run()
 
 		////////////////////////////////////////////////////////////////////
 #pragma endregion
-
 
 #pragma region Dorumon Redraw constantBuffer
 
@@ -1448,6 +1525,23 @@ void DEMO_APP::CreateObj(const char* file, Model& p_model, const wchar_t* filena
 
 }
 
+void DEMO_APP::CreateObjCube(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler, const wchar_t* Secondfilename)
+{
+	INPUT_VERTEX* ObjVerts = nullptr;
+	unsigned int * ObjectIndices = nullptr;
+	unsigned int max = 0;
+	unsigned int maxIndex = 0;
+
+	CubeObjectLoader(file, &ObjVerts, &ObjectIndices, max, maxIndex);
+
+	p_model.loadVerts(max, ObjVerts);
+
+	p_model.CreateTexture(m_iDevice, filename, Secondfilename, p_sampler);
+
+	p_model.CreateBuffers(m_iDevice, maxIndex, ObjectIndices);
+
+}
+
 void DEMO_APP::DrawObj(Model* p_model, BufferInput* p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size)
 {
 	m_dcConext->PSSetShader(p_shaderPS, NULL, 0);
@@ -1563,9 +1657,6 @@ void DEMO_APP::TransparentStarsDraw()
 
 	vector<unsigned int> store;
 
-
-
-
 #pragma region Sorting Needs work
 
 
@@ -1665,6 +1756,19 @@ void DEMO_APP::MappingPointLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, PtLight& p_l
 	m_dcConext->Unmap(m_pCBufferPointLight_PS, 0);
 }
 
+void DEMO_APP::MappingSpotLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, SptLight& p_light)
+{
+	ZeroMemory(&p_Scene, sizeof(D3D11_MAPPED_SUBRESOURCE));
+
+	m_dcConext->Map(m_pCBufferSpotLight_PS, 0, D3D11_MAP_WRITE_DISCARD, NULL, &p_Scene);
+
+	m_sptLight = p_light;
+
+	memcpy(p_Scene.pData, &m_sptLight, sizeof(SptLight));
+
+	m_dcConext->Unmap(m_pCBufferSpotLight_PS, 0);
+}
+
 void DEMO_APP::RedrawSceneBuffer(D3D11_MAPPED_SUBRESOURCE& p_Scene, Scene& p_Matrix)
 {
 	////////////////////////////////////////////////////////////////////
@@ -1695,7 +1799,7 @@ void DEMO_APP::BackAndForth(float _comp, float& p_trans)
 
 	if (lastFrame != flip)
 	{
-		p_trans = 0.0000006;
+		p_trans = 0.000f;
 	}
 	else if (flip)
 	{
@@ -1822,6 +1926,12 @@ void DEMO_APP::CreateConstBuffers()
 	ConstantBufferData.pSysMem = &m_plgLight;
 
 	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pCBufferPointLight_PS);
+
+	cBufferDesc.ByteWidth = sizeof(SptLight);
+	ConstantBufferData.pSysMem = &m_sptLight;
+
+	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pCBufferSpotLight_PS);
+
 }
 
 bool DEMO_APP::CursorClientCheck(POINT curr)
@@ -1888,7 +1998,7 @@ bool DEMO_APP::ShutDown()
 	SAFE_RELEASE(m_dcConext);
 
 #if _DEBUG
-	m_dgDebug->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
+	m_dgDebug->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY);
 #endif
 
 	SAFE_RELEASE(m_dgDebug);
@@ -1951,11 +2061,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			g_dcConext->OMSetRenderTargets(0, 0, 0);
 
 			// Release all outstanding references to the swap chain's buffers.
-			//g_DepthView->Release();
-			g_ZBuffer->Release();
-			g_pBackBuffer->Release();
-			g_pDepthState->Release();
-			g_rtvRenderTargetView->Release();
+			SAFE_RELEASE(g_DepthView);
+			SAFE_RELEASE(g_ZBuffer);
+			SAFE_RELEASE(g_pBackBuffer);
+			SAFE_RELEASE(g_pDepthState);
+			SAFE_RELEASE(g_rtvRenderTargetView);
 
 
 			g_dcConext->Flush();
