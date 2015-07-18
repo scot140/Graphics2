@@ -10,6 +10,7 @@ using namespace std;
 
 
 //Funtion headers
+void TangentCreation(INPUT_VERTEX** test, unsigned int** p_Indices, unsigned int& size, unsigned int& maxIndices);
 
 //Input is only for the Buffer Count, Buffer Width, Buffer Height, and Window to render to
 //Output is the first parameter for a DXGI_SWAP_CHAIN_DESC
@@ -281,10 +282,9 @@ bool ObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_I
 		(*test)[i].normals = foundNorm;
 		(*test)[i].col = XMFLOAT4(1, 1, 0, 0);
 	}
-
+	TangentCreation(test, p_Indices, size, maxIndices);
 	return true;
 }
-
 
 bool CubeObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int** p_Indices, unsigned int& size, unsigned int& maxIndices)
 {
@@ -407,6 +407,113 @@ bool CubeObjectLoader(const char * filepath, INPUT_VERTEX** test, unsigned int**
 		(*test)[i].normals = foundNorm;
 		(*test)[i].col = XMFLOAT4(1, 1, 0, 0);
 	}
+	TangentCreation(test, p_Indices, size, maxIndices);
 
 	return true;
+}
+
+void TangentCreation(INPUT_VERTEX** test, unsigned int** p_Indices, unsigned int& size, unsigned int& maxIndices)
+{
+
+	if (size < 3)
+	{
+		return;
+	}
+
+	unsigned int Index = 0;
+
+	struct tangHlpr
+	{
+		XMFLOAT4 pos[3];
+		XMFLOAT2 uv[3];
+	};
+
+
+	float ratio;
+	tangHlpr helper;
+	XMVECTOR texEdges[2];
+	XMVECTOR vertEdges[2];
+	XMVECTOR u_Direction;
+	XMVECTOR v_Direction;
+	unsigned int LastIndex = 0;
+
+	do
+	{
+
+		ZERO_OUT(texEdges);
+		ZERO_OUT(vertEdges);
+
+		for (; (Index % 3) != 0 || Index == LastIndex; Index++)
+		{
+			helper.pos[(Index % 3)] = (*test)[(*p_Indices)[Index]].pos;
+			helper.uv[(Index % 3)] = (*test)[(*p_Indices)[Index]].uv;
+		}
+
+		////////////////////////////////////////////////////////////////////////////////////////
+		vertEdges[0] = XMLoadFloat4(&helper.pos[1]) - XMLoadFloat4(&helper.pos[0]);
+
+		vertEdges[1] = XMLoadFloat4(&helper.pos[2]) - XMLoadFloat4(&helper.pos[0]);
+		////////////////////////////////////////////////////////////////////////////////////////
+		texEdges[0] = XMLoadFloat2(&helper.uv[1]) - XMLoadFloat2(&helper.uv[0]);
+
+		texEdges[1] = XMLoadFloat2(&helper.uv[2]) - XMLoadFloat2(&helper.uv[0]);
+		////////////////////////////////////////////////////////////////////////////////////////
+
+		ratio = 1.0f / (texEdges[0].m128_f32[0] * texEdges[1].m128_f32[1] - texEdges[1].m128_f32[0] * texEdges[0].m128_f32[1]);
+
+		//tangent Vector
+		float	compX = (texEdges[1].m128_f32[1] * vertEdges[0].m128_f32[0]);
+		compX = compX - (texEdges[0].m128_f32[1] * vertEdges[1].m128_f32[0]);
+		compX = compX * ratio;
+
+
+		float	compY = (texEdges[1].m128_f32[1] * vertEdges[0].m128_f32[1]);
+		compY = compY - (texEdges[0].m128_f32[1] * vertEdges[1].m128_f32[1]);
+		compY = compY * ratio;
+
+		float	compZ = (texEdges[1].m128_f32[1] * vertEdges[0].m128_f32[2]);
+		compZ = compZ - (texEdges[0].m128_f32[1] * vertEdges[1].m128_f32[2]);
+		compZ = compZ * ratio;
+
+		u_Direction = XMVectorSet(compX, compY, compZ, 1);
+
+
+		//Handness vector
+		v_Direction = XMVectorSet(
+			(texEdges[0].m128_f32[0] * vertEdges[1].m128_f32[0] - texEdges[1].m128_f32[0] * vertEdges[0].m128_f32[0]) * ratio,
+			(texEdges[0].m128_f32[0] * vertEdges[1].m128_f32[1] - texEdges[1].m128_f32[0] * vertEdges[0].m128_f32[1]) * ratio,
+			(texEdges[0].m128_f32[0] * vertEdges[1].m128_f32[2] - texEdges[1].m128_f32[0] * vertEdges[0].m128_f32[2]) * ratio, 1);
+
+		///Calulating each of the normals
+		u_Direction = XMVector3Normalize(u_Direction);
+		v_Direction = XMVector3Normalize(v_Direction);
+
+		Index -= 3;
+		for (; (Index % 3) != 0 || Index == LastIndex; Index++)
+		{
+			INPUT_VERTEX* temp = &(*test)[(*p_Indices)[Index]];
+			///finding the tangent without the handedness
+			XMVECTOR normal = XMVectorSet(temp->normals.x, temp->normals.y, temp->normals.z, 1);
+
+			float dotResult = XMVector3Dot(normal, u_Direction).m128_f32[0];
+
+			XMVECTOR tangent = u_Direction - normal * dotResult;
+
+			tangent = XMVector3Normalize(tangent);
+
+			///handedness
+			XMVECTOR cross = XMVector3Cross(normal, u_Direction);
+
+			dotResult = XMVector3Dot(cross, v_Direction).m128_f32[0];
+
+			tangent.m128_f32[3] = (dotResult > 0.0f) ? -1.0f : 1.0f;
+
+			XMStoreFloat4(&temp->tangents, tangent);
+		}
+
+
+
+
+		LastIndex = Index;
+	} while (Index < maxIndices);
 }

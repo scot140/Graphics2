@@ -6,13 +6,13 @@ struct INPUT_VERTEX
 	float4 col : COLOR;
 	float3 norm: NORM;
 	float2 uv : UV;
-
+	float4 tangents :TAN;
+	// instance pos
 };
 
 struct OUTPUT_VERTEX
 {
 	float4 projectedCoordinate : SV_POSITION;
-	float4 colorOut : COLOR;
 	float4 WorldPos : POSITION;
 	float3 norm: NORM;
 	float2 uvOut : UV;
@@ -36,9 +36,12 @@ OUTPUT_VERTEX main(INPUT_VERTEX fromVertexBuffer)
 {
 	OUTPUT_VERTEX sendToRasterizer = (OUTPUT_VERTEX)0;
 
+
+
 	float4 output = fromVertexBuffer.pos;
 
-	output = mul(output, WorldMatrix);
+	/// add the instance pos to the output
+		output = mul(output, WorldMatrix);
 
 	sendToRasterizer.WorldPos = output;
 
@@ -48,11 +51,11 @@ OUTPUT_VERTEX main(INPUT_VERTEX fromVertexBuffer)
 
 	sendToRasterizer.projectedCoordinate = output;
 
-	sendToRasterizer.colorOut = fromVertexBuffer.col;
-
 	sendToRasterizer.uvOut = fromVertexBuffer.uv;
 
-	sendToRasterizer.norm = normalize(fromVertexBuffer.norm);
+	float4 normal = float4(fromVertexBuffer.norm.xyz, 0);
+
+		sendToRasterizer.norm = mul(normal, WorldMatrix).xyz;
 
 	return sendToRasterizer;
 }

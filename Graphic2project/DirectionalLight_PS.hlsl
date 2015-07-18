@@ -1,9 +1,8 @@
 struct OUTPUT_VERTEX
 {
 	float4 projectedCoordinate : SV_POSITION;
-	float4 colorOut : COLOR;
 	float4 WorldPos : POSITION;
-	float3 normals: NORM;
+	float3 norm: NORM;
 	float2 uvOut : UV;
 	float3 padding : padding;
 };
@@ -32,10 +31,10 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 
 	float3 color;
 
-	float3 ratio = dot(-light.dir, input.normals);
+	float3 ratio = dot(-light.dir, input.norm);
 
-		color = saturate(ratio * light.diffuse * diffuse);
+		color = saturate(ratio * light.diffuse.rgb * diffuse.rgb);
 
-	color = light.ambient * color;
+	color = light.ambient.rgb * color;
 	return float4(color, diffuse.a);
 }

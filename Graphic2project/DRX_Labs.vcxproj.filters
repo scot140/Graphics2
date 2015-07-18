@@ -38,12 +38,6 @@
     <ClInclude Include="source\DefineLibrary.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\Cube.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\numbers_test.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="source\DirectX_Helpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -83,6 +77,21 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="source\PShader_SpotLight.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="source\VS_NormalMapping.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="source\PS_NormalMapping.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="source\PS_NormalMapPoint.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="source\PS_NormalMapSpot.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="source\VS_Instancing.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>

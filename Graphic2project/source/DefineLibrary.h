@@ -13,6 +13,9 @@
 #include <d3d11.h>
 #pragma comment(lib, "d3d11.lib")
 
+#include <DirectXMath.h>
+using namespace DirectX;
+
 struct Object
 {
 	XMFLOAT4X4 m_mxConstMatrix;
@@ -30,6 +33,12 @@ struct INPUT_VERTEX
 	XMFLOAT4 col;
 	XMFLOAT3 normals;
 	XMFLOAT2 uv;
+	XMFLOAT4 tangents;
+};
+
+struct InstanceType
+{
+	XMFLOAT4 pos;
 };
 
 struct ANIMATION
@@ -54,7 +63,6 @@ struct PtLight
 	float range;
 	float power;
 	XMFLOAT4 color;
-	XMFLOAT4 diffuse;
 	XMFLOAT2 padding;
 };
 

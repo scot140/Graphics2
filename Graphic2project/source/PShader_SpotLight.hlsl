@@ -1,7 +1,6 @@
 struct OUTPUT_VERTEX
 {
-	float4 pos : SV_POSITION;
-	float4 colorOut : COLOR;
+	float4 projectedCoordinate : SV_POSITION;
 	float4 WorldPos : POSITION;
 	float3 norm: NORM;
 	float2 uv : UV;
@@ -29,12 +28,12 @@ SamplerState filter: register(s0);
 
 float4 main(OUTPUT_VERTEX input) : SV_TARGET
 {
-	light;
+
 	float4 textureColor = baseTexture.Sample(filter, input.uv);
 
-		float4 lightDir = normalize(light.pos - input.WorldPos);
+	float4 lightDir = normalize(light.pos - input.WorldPos);
 
-		float surfaceRatio = saturate(dot(-lightDir, float4(light.coneDir, 1)));
+	float surfaceRatio = saturate(dot(-lightDir, float4(light.coneDir, 1)));
 
 	float spotFactor = (surfaceRatio < light.coneWidth) ? 1 : 0;
 
@@ -42,10 +41,10 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 
 	if (spotFactor == 1)
 	{
-		lightRatio = saturate(dot(lightDir, float4(input.norm, 1)));
+		lightRatio = saturate(dot(lightDir, float4(input.norm, 0)));
 	}
 
 	float4 finalColor = spotFactor * lightRatio * textureColor;
 
-		return float4(finalColor.xyz, 1);
+	return finalColor;
 }

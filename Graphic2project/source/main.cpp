@@ -19,7 +19,6 @@
 #include <Windows.h>
 #include "Model.h"
 #include "Cube.h"
-#include "numbers_test.h"
 #include <algorithm>
 //#include <atlbase.h>
 
@@ -41,11 +40,19 @@ using namespace std;
 #include "../DefaultPS.csh"
 #include "../Skybox_VS.csh"
 #include "../Skybox_PS.csh"
-#include "../DirectionalLight_PS.csh"
+#include "../VS_Instancing.csh"
+#include "../PS_MultiTexture.csh"
+
 #include "../Light_VertexShader.csh"
+#include "../DirectionalLight_PS.csh"
 #include "../PShader_SpotLight.csh"
 #include "../PointLightShader.csh"
-#include "../PS_MultiTexture.csh"
+
+
+#include "../VS_NormalMapping.csh"
+#include "../PS_NormalMapping.csh"
+#include "../PS_NormalMapPoint.csh"
+#include "../PS_NormalMapSpot.csh"
 
 #define BACKBUFFER_WIDTH	800
 #define BACKBUFFER_HEIGHT	800
@@ -99,32 +106,40 @@ class DEMO_APP
 	ID3D11DeviceContext* m_dcConext;
 	ID3D11RenderTargetView* m_rtvRenderTargetView;
 	ID3D11InputLayout* m_pVertexInput;
+	ID3D11InputLayout* m_pInstanceInput;
+
 	ID3D11Texture2D* m_pBackBuffer;
 	ID3D11RasterizerState* m_pRasterState;
 	D3D11_VIEWPORT m_vpSecondaryView;
 	DXGI_SWAP_CHAIN_DESC m_scDesc;
 
 	// TODO: PART 2 STEP 4
+	//misc shaders
 	ID3D11PixelShader*	m_shaderPS;
-
 	ID3D11PixelShader* m_DefaultPS;
 	ID3D11VertexShader* m_shaderVS;
-
 	ID3D11PixelShader* m_SkyboxPS;
 	ID3D11VertexShader* m_SkyboxVS;
-
+	ID3D11PixelShader* m_MultiTexturePS;
+	ID3D11VertexShader* m_vsInstancing;
+	//LIghts
 	ID3D11PixelShader*	m_DLightPS;
 	ID3D11VertexShader* m_LightVS;
-
 	ID3D11PixelShader* m_PLightPS;
-	ID3D11PixelShader* m_MultiTexturePS;
-
 	ID3D11PixelShader* m_SpLightPS;
+
+	//Normal mapping
+	ID3D11VertexShader* m_vsNormalMap;
+	ID3D11PixelShader* m_psNormalMap;
+	ID3D11PixelShader* m_psNormalMapPoint;
+	ID3D11PixelShader* m_psNormalMapSpot;
+
 	//depth perspective
 	ID3D11Texture2D* m_ZBuffer;
 	ID3D11DepthStencilView* m_DepthView;
 	ID3D11DepthStencilState * m_pDepthState;
 	ID3D11PixelShader * m_PScurrentShader;
+	ID3D11PixelShader * m_PScurrentNormalShader;
 
 	//Blending
 	ID3D11BlendState* m_pBlendState;
@@ -136,17 +151,14 @@ class DEMO_APP
 	//camera
 
 	//Math
-
 	XMFLOAT4X4 m_mxWorldMatrix;
 	XMFLOAT4X4 m_mxViewMatrix;
-
 	XMFLOAT4X4 m_mxProjectonMatrix;
-
+	//view port
 	XMFLOAT4X4 m_mxMiniViewMatrix;
 	XMFLOAT4X4 m_mxMiniProjectionMatrix;
 
 	//misc
-
 	XMFLOAT4X4 rotation;
 	POINT distance;
 
@@ -163,22 +175,36 @@ class DEMO_APP
 
 	Scene m_scnMatrix;
 	ANIMATION m_aniAnimation;
+
+	//buffer  
 	ID3D11Buffer* m_pConstBufferAnimation_PS;
 	ID3D11Buffer* m_pConstBuffer[2];
 	ID3D11Buffer* m_pConstBufferLight_PS;
 	ID3D11Buffer* m_pCBufferPointLight_PS;
 	ID3D11Buffer* m_pCBufferSpotLight_PS;
-	BufferInput ModelPixelInput;
 
+	ID3D11Buffer* m_InstanceBuffer;
+
+	BufferInput ModelPixelInput;
+	BufferInput ModelNormalMap;
 	float ptTransX = 0;
 	bool flip = false;
 
-public:
+	//Render To Texture
+	ID3D11Texture2D* CubeRenderTarget;
+	ID3D11RenderTargetView* m_rtvToCube;
+	D3D11_VIEWPORT m_vpCubeViewport;
+	XMFLOAT4X4 m_mxCubeViewMatrix;
+	XMFLOAT4X4 m_mxCubeProjectonMatrix;
 
+public:
+	//Constbuffer manipulators
 	LIGHTING DirectionLight;
 	PtLight PointLight;
 	SptLight SpotLight;
+	unsigned int InstanceCount;
 
+	///models
 	Model m_StarModel;
 	Model Pyramid;
 	Model Dorumon;
@@ -186,8 +212,10 @@ public:
 	Model DinoTiger;
 	Model Ground;
 	Model DoruGreymon;
-
+	Model Dorugoramon;
 	Model m_multiStarModel[3];
+	Model m_mdCube;
+
 
 	DEMO_APP(HINSTANCE hinst, WNDPROC proc);
 
@@ -197,12 +225,15 @@ public:
 
 	void CreateObj(const char* file, Model& p_model, D3D11_SUBRESOURCE_DATA* p_data = nullptr, D3D11_TEXTURE2D_DESC* p_texture = nullptr, D3D11_SAMPLER_DESC* p_sampler = nullptr);
 
-	void CreateObj(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler, const wchar_t* Secondfilename = nullptr);
+	void CreateObj(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler, const wchar_t* Secondfilename = nullptr, unsigned int numInstance = 0, InstanceType* instances = nullptr);
 
-	void CreateObjCube(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler, const wchar_t* Secondfilename);
+
+	void CreateObjCube(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler, const wchar_t* Secondfilename = nullptr);
 
 	void DrawObj(Model* p_model, BufferInput*p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size);
+	void DrawInstanceObj(Model* p_model, BufferInput* p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size);
 	void DrawStar();
+	
 	void DEMO_APP::DrawStar(Model* p_star); // only use for star models
 
 	void TransparentStarsDraw();
@@ -210,6 +241,7 @@ public:
 	void UpdateSkyBox(XMFLOAT4X4& rot);
 	void CreateSkyBox(D3D11_SAMPLER_DESC * p_sampler);
 	void ChangeProjectionMatrix();
+	void CreateRenderToTexture();
 	void MappingObjMatrix(D3D11_MAPPED_SUBRESOURCE& p_Scene, Object& p_Matrix);
 	void MappingAnimation(D3D11_MAPPED_SUBRESOURCE& p_Scene, Model& p_Model);
 	void MappingLighting(D3D11_MAPPED_SUBRESOURCE& p_Scene, LIGHTING& p_light);
@@ -400,16 +432,23 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	m_iDevice->CreateVertexShader(VertexShader, sizeof(VertexShader), NULL, &m_shaderVS);
 
 	m_iDevice->CreatePixelShader(DefaultPS, sizeof(DefaultPS), NULL, &m_DefaultPS);
+	m_iDevice->CreateVertexShader(VS_Instancing, sizeof(VS_Instancing), NULL, &m_vsInstancing);
 
 	m_iDevice->CreatePixelShader(Skybox_PS, sizeof(Skybox_PS), NULL, &m_SkyboxPS);
 	m_iDevice->CreateVertexShader(Skybox_VS, sizeof(Skybox_VS), NULL, &m_SkyboxVS);
 
-	m_iDevice->CreatePixelShader(DirectionalLight_PS, sizeof(DirectionalLight_PS), NULL, &m_DLightPS);
+	m_iDevice->CreatePixelShader(PS_MultiTexture, sizeof(PS_MultiTexture), NULL, &m_MultiTexturePS);
+
 	m_iDevice->CreateVertexShader(Light_VertexShader, sizeof(Light_VertexShader), NULL, &m_LightVS);
+	m_iDevice->CreatePixelShader(DirectionalLight_PS, sizeof(DirectionalLight_PS), NULL, &m_DLightPS);
 	m_iDevice->CreatePixelShader(PointLightShader, sizeof(PointLightShader), NULL, &m_PLightPS);
 	m_iDevice->CreatePixelShader(PShader_SpotLight, sizeof(PShader_SpotLight), NULL, &m_SpLightPS);
 
-	m_iDevice->CreatePixelShader(PS_MultiTexture, sizeof(PS_MultiTexture), NULL, &m_MultiTexturePS);
+	m_iDevice->CreateVertexShader(VS_NormalMapping, sizeof(VS_NormalMapping), NULL, &m_vsNormalMap);
+
+	m_iDevice->CreatePixelShader(PS_NormalMapping, sizeof(PS_NormalMapping), NULL, &m_psNormalMap);
+	m_iDevice->CreatePixelShader(PS_NormalMapPoint, sizeof(PS_NormalMapPoint), NULL, &m_psNormalMapPoint);
+	m_iDevice->CreatePixelShader(PS_NormalMapSpot, sizeof(PS_NormalMapSpot), NULL, &m_psNormalMapSpot);
 
 	// TODO: PART 2 STEP 8a
 	D3D11_INPUT_ELEMENT_DESC element[] =
@@ -417,11 +456,21 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "NORM", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TAN", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 	};
+	m_iDevice->CreateInputLayout(element, 5, VertexShader, sizeof(VertexShader), &m_pVertexInput);
 
-	m_iDevice->CreateInputLayout(element, 4, VertexShader, sizeof(VertexShader), &m_pVertexInput);
-
+	D3D11_INPUT_ELEMENT_DESC InstanceElement[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "NORM", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TAN", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "IPOSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 }
+	};
+	m_iDevice->CreateInputLayout(InstanceElement, 6, VS_Instancing, sizeof(VS_Instancing), &m_pInstanceInput);
 
 	//DirectionLight
 	DirectionLight.dir = XMFLOAT3(-1, -1, 0);
@@ -429,8 +478,8 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	DirectionLight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
 	CreateConstBuffers();
-	//cube model
 
+	//cube model
 	XMMATRIX temp;
 
 	//Pyramid Creation
@@ -453,20 +502,29 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	CreateSkyBox(&SamplerDesc);
 
-	Pyramid.SetAnimation(4, (float)numbers_test_width);
+	Pyramid.SetAnimation(4, (float)512);
 
 	CreateObj("resource/Models/test pyramid.obj", Pyramid, L"resource/Texture/numbers_test.dds", &SamplerDesc);
 
-	temp = XMMatrixTranslation(1, 0, 0) * XMLoadFloat4x4(&m_mxWorldMatrix);
+	temp = XMMatrixTranslation(1.0f, 1.0f, 0) * XMLoadFloat4x4(&m_mxWorldMatrix);
 
 	XMStoreFloat4x4(&Pyramid.m_objMatrix.m_mxConstMatrix, temp);
 
 
 	//Drawing a dorumon
 
-	CreateObj("resource/Models/Dorumon.obj", Dorumon, L"resource/Texture/Dorumon.dds", &SamplerDesc);
+	InstanceType* triangle;
+	triangle = new InstanceType[4];
+	triangle[0].pos = XMFLOAT4(-1.5f, -1.5f, 5.0f, 1.0f);
+	triangle[1].pos = XMFLOAT4(-1.5f, 1.5f, 5.0f, 1.0f);
+	triangle[2].pos = XMFLOAT4(1.5f, -1.5f, 5.0f, 1.0f);
+	triangle[3].pos = XMFLOAT4(1.5f, 1.5f, 5.0f, 1.0f);
 
-	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 0, 0);
+	CreateObj("resource/Models/Dorumon.obj", Dorumon, L"resource/Texture/Dorumon.dds", &SamplerDesc,nullptr ,5, triangle);
+	delete[] triangle;
+	triangle = nullptr;
+
+	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 0, -3);
 
 	temp = XMMatrixRotationY(XMConvertToRadians(180)) * temp;
 
@@ -474,11 +532,11 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	Dorumon.ScaleModel(0.5f);
 
-#pragma region //Drawing a DinoTigermon
+#pragma region Drawing a DinoTigermon
 
 	CreateObj("resource/Models/DinoTigermon.obj", DinoTiger, L"resource/Texture/DinoTigermon.dds", &SamplerDesc);
 
-	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(-1, 0, 0);
+	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(-1, 0, -3);
 
 	temp = XMMatrixRotationY(XMConvertToRadians(180)) * temp;
 
@@ -500,6 +558,20 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	DoruGreymon.ScaleModel(0.75f);
 #pragma endregion
 
+#pragma region Dorugoramon
+
+	CreateObj("resource/Models/Dorugoramon.obj", Dorugoramon, L"resource/Texture/Dorugoramon.dds", &SamplerDesc, L"resource/Normals/Dorugoramon.dds");
+
+	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(-1, 0, -1);
+
+	temp = XMMatrixRotationY(XMConvertToRadians(180)) * temp;
+
+	XMStoreFloat4x4(&Dorugoramon.m_objMatrix.m_mxConstMatrix, temp);
+
+	Dorugoramon.ScaleModel(0.5f);
+
+#pragma endregion
+
 #pragma region Creating a Ground
 
 	CreateObjCube("resource/Models/Ground1.obj", Ground, L"resource/Texture/Astral.dds", &SamplerDesc, L"resource/Texture/Night.dds");
@@ -512,18 +584,28 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 #pragma endregion
 
+#pragma region Cube
+	CreateObjCube("resource/Models/cube.obj", m_mdCube, L"resource/Texture/Blank.dds", &SamplerDesc);
+
+	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(2, 1.75f, -1);
+
+	XMStoreFloat4x4(&m_mdCube.m_objMatrix.m_mxConstMatrix, temp);
+
+#pragma endregion
+
 
 	//Getting the cursor pos
 	GetCursorPos(&startPoint);
 
 	//Setting the current pixelshader to Direction light
 	m_PScurrentShader = m_DLightPS;
+	m_PScurrentNormalShader = m_psNormalMap;
+
 	//BufferInput
 	ModelPixelInput.numPixelSlot = 1;
 	ModelPixelInput.ConstPixel = &m_pConstBufferLight_PS;
 	ModelPixelInput.ConstVertex = m_pConstBuffer;
 	ModelPixelInput.numVertexSlot = 2;
-
 	/// debug
 #if _DEBUG
 	m_iDevice->QueryInterface(__uuidof(ID3D11Debug), reinterpret_cast<void**>(&m_dgDebug));
@@ -593,6 +675,7 @@ bool DEMO_APP::Run()
 	if (GetAsyncKeyState('1') & 0x1)
 	{
 		m_PScurrentShader = m_DLightPS;
+		m_PScurrentNormalShader = m_psNormalMap;
 		//BufferInput
 		ModelPixelInput.numPixelSlot = 1;
 		ModelPixelInput.ConstPixel = &m_pConstBufferLight_PS;
@@ -602,6 +685,8 @@ bool DEMO_APP::Run()
 	else if (GetAsyncKeyState('2') & 0x1)
 	{
 		m_PScurrentShader = m_PLightPS;
+		m_PScurrentNormalShader = m_psNormalMapPoint;
+
 		//BufferInput
 		ModelPixelInput.numPixelSlot = 1;
 		ModelPixelInput.ConstPixel = &m_pCBufferPointLight_PS;
@@ -612,6 +697,8 @@ bool DEMO_APP::Run()
 	else if (GetAsyncKeyState('3') & 0x1)
 	{
 		m_PScurrentShader = m_SpLightPS;
+		m_PScurrentNormalShader = m_psNormalMapSpot;
+
 		//BufferInput
 		ModelPixelInput.numPixelSlot = 1;
 		ModelPixelInput.ConstPixel = &m_pCBufferSpotLight_PS;
@@ -678,16 +765,16 @@ bool DEMO_APP::Run()
 
 	if (GetAsyncKeyState('0') & 0x1)
 	{
+
 		XMMATRIX view = XMMatrixIdentity();
-		//for the Look At Function
-		XMVECTOR pos = XMLoadFloat3(&XMFLOAT3(0, 0, -1));
-		XMVECTOR focus = XMLoadFloat3(&XMFLOAT3(0, 0, 0));
-		XMVECTOR height = XMLoadFloat3(&XMFLOAT3(0, 1, 0));
-		//Creating the Camera
-		view = XMMatrixLookAtLH(pos, focus, height);
+		view *= XMMatrixTranslation(m_mxViewMatrix._41, -m_mxViewMatrix._42, m_mxViewMatrix._43);
+
 		//Saving the camera
 		XMStoreFloat4x4(&m_mxViewMatrix, view);
+
 		SceneMatrices.matrix_sceneCamera = m_mxViewMatrix;
+
+		//Skybox
 		view = XMMatrixInverse(nullptr, view);
 		XMStoreFloat4x4(&SkyBox.m_objMatrix.m_mxConstMatrix, view);
 	}
@@ -704,17 +791,12 @@ bool DEMO_APP::Run()
 
 		CopyView = XMLoadFloat4x4(&m_mxViewMatrix);
 
-		//XMVECTOR pos = CopyView.r[3];
-
-		//CopyView.r[3] = XMVectorSet(0, 0, 0, 1);
 
 		CopyView = XMMatrixInverse(nullptr, CopyView);
 
 		CopyView = XMLoadFloat4x4(&rotation) * CopyView;
 
 		CopyView = XMMatrixInverse(nullptr, CopyView);
-
-		//CopyView.r[3] = pos;
 
 		CopyView = CopyView * XMMatrixTranslation(CameraX, CameraY, CameraZ);
 
@@ -738,8 +820,28 @@ bool DEMO_APP::Run()
 	BufferInput input;
 	RedrawSceneBuffer(SceneResource, SceneMatrices);
 
-
 	UpdateSkyBox(rotation);
+
+#pragma region Ground
+	matrix = XMLoadFloat4x4(&Ground.m_objMatrix.m_mxConstMatrix);
+
+
+	XMStoreFloat4x4(&Ground.m_objMatrix.m_mxConstMatrix, matrix);
+
+	MappingObjMatrix(resource, Ground.m_objMatrix);
+
+	//////////////////////////////////////////////////////////////////////
+
+	MappingAnimation(resource, Ground);
+#pragma endregion
+
+	input.ConstPixel = nullptr;
+	input.numPixelSlot = 0;
+
+	input.ConstVertex = m_pConstBuffer;
+	input.numVertexSlot = 2;
+
+	DrawObj(&Ground, &input, m_shaderVS, m_MultiTexturePS, nullptr, 0);
 
 	DrawStar();
 
@@ -751,17 +853,32 @@ bool DEMO_APP::Run()
 	PointLight.power = 0;
 	PointLight.range = 50;
 	PointLight.color = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	PointLight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
 	MappingPointLight(resource, PointLight);
 
-	SpotLight.pos = XMFLOAT4(0,2,0, 1);
+	SpotLight.pos = XMFLOAT4(0, 2, 0, 1);
 	SpotLight.power = 64;
 	SpotLight.coneDir = XMFLOAT3(0, -1, 0);
 	SpotLight.coneWidth = cos(XMConvertToRadians(20.0f));
 	SpotLight.color = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
 	MappingSpotLight(resource, SpotLight);
+
+#pragma region cube constantBuffer
+	matrix = XMLoadFloat4x4(&m_mdCube.m_objMatrix.m_mxConstMatrix);
+
+
+	XMStoreFloat4x4(&m_mdCube.m_objMatrix.m_mxConstMatrix, matrix);
+
+	m_objMatrix.m_mxConstMatrix = m_mdCube.m_objMatrix.m_mxConstMatrix;
+
+	MappingObjMatrix(resource, m_mdCube.m_objMatrix);
+
+	//////////////////////////////////////////////////////////////////////
+
+#pragma endregion
+
+	DrawObj(&m_mdCube, &ModelPixelInput, m_LightVS, m_PScurrentShader, nullptr, 0);
 
 #pragma region Dorumon constantBuffer
 	matrix = XMLoadFloat4x4(&Dorumon.m_objMatrix.m_mxConstMatrix);
@@ -777,7 +894,7 @@ bool DEMO_APP::Run()
 
 #pragma endregion
 
-	DrawObj(&Dorumon, &ModelPixelInput, m_LightVS, m_PScurrentShader, nullptr, 0);
+	DrawInstanceObj(&Dorumon, &ModelPixelInput, m_vsInstancing, m_PScurrentShader, nullptr, 0);
 
 #pragma region DinoTiger constantBuffer
 
@@ -809,32 +926,26 @@ bool DEMO_APP::Run()
 	MappingObjMatrix(resource, DoruGreymon.m_objMatrix);
 
 	//////////////////////////////////////////////////////////////////////
-
-
 #pragma endregion
 
 	DrawObj(&DoruGreymon, &ModelPixelInput, m_LightVS, m_PScurrentShader, nullptr, 0);
 
-#pragma region Ground
-	matrix = XMLoadFloat4x4(&Ground.m_objMatrix.m_mxConstMatrix);
+#pragma region DoruGreymon constantBuffer
+
+	matrix = XMLoadFloat4x4(&Dorugoramon.m_objMatrix.m_mxConstMatrix);
 
 
-	XMStoreFloat4x4(&Ground.m_objMatrix.m_mxConstMatrix, matrix);
 
-	MappingObjMatrix(resource, Ground.m_objMatrix);
+	XMStoreFloat4x4(&Dorugoramon.m_objMatrix.m_mxConstMatrix, matrix);
+
+
+	MappingObjMatrix(resource, Dorugoramon.m_objMatrix);
 
 	//////////////////////////////////////////////////////////////////////
-
-	MappingAnimation(resource, Ground);
 #pragma endregion
 
-	input.ConstPixel = nullptr;
-	input.numPixelSlot = 0;
+	DrawObj(&Dorugoramon, &ModelPixelInput, m_vsNormalMap, m_PScurrentNormalShader, nullptr, 0);
 
-	input.ConstVertex = m_pConstBuffer;
-	input.numVertexSlot = 2;
-
-	DrawObj(&Ground, &input, m_shaderVS, m_MultiTexturePS, nullptr, 0);
 
 	ID3D11RasterizerState* rasterArray[2];
 	rasterArray[0] = m_pRasterStateFrontCull;
@@ -942,9 +1053,9 @@ void DEMO_APP::WorldCameraProjectionSetup()
 
 	XMMATRIX view = XMMatrixIdentity();
 	//for the Look At Function
-	XMVECTOR pos = XMLoadFloat3(&XMFLOAT3(0, 0, -1));
+	XMVECTOR pos = XMLoadFloat3(&XMFLOAT3(0, 1, -4));
 	XMVECTOR focus = XMLoadFloat3(&XMFLOAT3(0, 0, 0));
-	XMVECTOR height = XMLoadFloat3(&XMFLOAT3(0, 1, 0));
+	XMVECTOR height = XMLoadFloat3(&XMFLOAT3(0, 2, 0));
 	//Creating the Camera
 	view = XMMatrixLookAtLH(pos, focus, height);
 	//Saving the camera
@@ -952,8 +1063,8 @@ void DEMO_APP::WorldCameraProjectionSetup()
 
 
 	//for the Look At Function
-	pos = XMLoadFloat3(&XMFLOAT3(0, 1, -0.15f));
-	focus = XMLoadFloat3(&XMFLOAT3(0, 0, 5));
+	pos = XMLoadFloat3(&XMFLOAT3(0, 2.0f, 0.0f));
+	focus = XMLoadFloat3(&XMFLOAT3(0, 0, 0));
 	height = XMLoadFloat3(&XMFLOAT3(0, 1, 0));
 	//Creating the Camera
 	view = XMMatrixLookAtLH(pos, focus, height);
@@ -1260,76 +1371,76 @@ void DEMO_APP::CreateStar(Model* star, unsigned int numStars, D3D11_SAMPLER_DESC
 	Star[0].pos.y = 0;
 	Star[0].pos.z = 0;
 	Star[0].pos.w = 1;
-	Star[0].col = XMFLOAT4(1, 1, 1, 1);
+	Star[0].col = XMFLOAT4(1, 1, 1, 0.3f);
 	//red
 	Star[1].pos.x = 0;
 	Star[1].pos.y = 1;
 	Star[1].pos.z = 0;
 	Star[1].pos.w = 1;
-	Star[1].col = XMFLOAT4(1, 0, 0, 0.5f);
+	Star[1].col = XMFLOAT4(1, 0, 0, 0.3f);
 
 	//red
 	Star[2].pos.x = 0.3f;
 	Star[2].pos.y = 0.3f;
 	Star[2].pos.z = 0;
 	Star[2].pos.w = 1;
-	Star[2].col = XMFLOAT4(1, 0, 0, 0.5f);
+	Star[2].col = XMFLOAT4(1, 0, 0, 0.3f);
 
 	//blue
 	Star[3].pos.x = 0.7f;
 	Star[3].pos.y = 0.3f;
 	Star[3].pos.z = 0;
 	Star[3].pos.w = 1;
-	Star[3].col = XMFLOAT4(0, 0, 1, 0.5f);
+	Star[3].col = XMFLOAT4(0, 0, 1, 0.3f);
 
 	//blue
 	Star[4].pos.x = 0.4f;
 	Star[4].pos.y = -0.2f;
 	Star[4].pos.z = 0;
 	Star[4].pos.w = 1;
-	Star[4].col = XMFLOAT4(0, 0, 1, 0.5f);
+	Star[4].col = XMFLOAT4(0, 0, 1, 0.3f);
 
 	//green
 	Star[5].pos.x = 0.4f;
 	Star[5].pos.y = -0.7f;
 	Star[5].pos.z = 0;
 	Star[5].pos.w = 1;
-	Star[5].col = XMFLOAT4(0, 0, 1, 0.5f);
+	Star[5].col = XMFLOAT4(0, 0, 1, 0.3f);
 
 	//green
 	Star[6].pos.x = 0;
 	Star[6].pos.y = -0.4f;
 	Star[6].pos.z = 0;
 	Star[6].pos.w = 1;
-	Star[6].col = XMFLOAT4(0, 0, 1, 0.5f);
+	Star[6].col = XMFLOAT4(0, 0, 1, 0.3f);
 
 	//yellow
 	Star[7].pos.x = -0.4f;
 	Star[7].pos.y = -0.7f;
 	Star[7].pos.z = 0;
 	Star[7].pos.w = 1;
-	Star[7].col = XMFLOAT4(1, 1, 0, 0.5f);
+	Star[7].col = XMFLOAT4(1, 1, 0, 0.3f);
 
 	//yellow
 	Star[8].pos.x = -0.4f;
 	Star[8].pos.y = -0.2f;
 	Star[8].pos.z = 0;
 	Star[8].pos.w = 1;
-	Star[8].col = XMFLOAT4(1, 1, 0, 0.5f);
+	Star[8].col = XMFLOAT4(1, 1, 0, 0.3f);
 
 	//cyan
 	Star[9].pos.x = -0.7f;
 	Star[9].pos.y = 0.3f;
 	Star[9].pos.z = 0;
 	Star[9].pos.w = 1;
-	Star[9].col = XMFLOAT4(0, 1, 1, 0.5f);
+	Star[9].col = XMFLOAT4(0, 1, 1, 0.3f);
 
 	//cyan
 	Star[10].pos.x = -0.3f;
 	Star[10].pos.y = 0.3f;
 	Star[10].pos.z = 0;
 	Star[10].pos.w = 1;
-	Star[10].col = XMFLOAT4(0, 1, 1, 0.5f);
+	Star[10].col = XMFLOAT4(0, 1, 1, 0.3f);
 
 	//white
 	Star[11].pos.x = 0;
@@ -1508,7 +1619,7 @@ void DEMO_APP::CreateObj(const char* file, Model& p_model, D3D11_SUBRESOURCE_DAT
 
 }
 
-void DEMO_APP::CreateObj(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler, const wchar_t* Secondfilename)
+void DEMO_APP::CreateObj(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler, const wchar_t* Secondfilename, unsigned int numInstance, InstanceType* instances)
 {
 	INPUT_VERTEX* ObjVerts = nullptr;
 	unsigned int * ObjectIndices = nullptr;
@@ -1521,7 +1632,7 @@ void DEMO_APP::CreateObj(const char* file, Model& p_model, const wchar_t* filena
 
 	p_model.CreateTexture(m_iDevice, filename, Secondfilename, p_sampler);
 
-	p_model.CreateBuffers(m_iDevice, maxIndex, ObjectIndices);
+	p_model.CreateBuffers(m_iDevice, maxIndex, ObjectIndices,numInstance,instances);
 
 }
 
@@ -1542,6 +1653,17 @@ void DEMO_APP::CreateObjCube(const char* file, Model& p_model, const wchar_t* fi
 
 }
 
+void DEMO_APP::DrawInstanceObj(Model* p_model, BufferInput* p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size)
+{
+	m_dcConext->PSSetShader(p_shaderPS, NULL, 0);
+	m_dcConext->VSSetShader(p_shaderVS, NULL, 0);
+
+	m_dcConext->VSSetConstantBuffers(0, p_input->numVertexSlot, p_input->ConstVertex);
+	m_dcConext->PSSetConstantBuffers(0, p_input->numPixelSlot, p_input->ConstPixel);
+
+	p_model->Draw(m_dcConext, m_pInstanceInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, raster, size);
+}
+
 void DEMO_APP::DrawObj(Model* p_model, BufferInput* p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size)
 {
 	m_dcConext->PSSetShader(p_shaderPS, NULL, 0);
@@ -1551,6 +1673,7 @@ void DEMO_APP::DrawObj(Model* p_model, BufferInput* p_input, ID3D11VertexShader*
 	m_dcConext->PSSetConstantBuffers(0, p_input->numPixelSlot, p_input->ConstPixel);
 
 	p_model->Draw(m_dcConext, m_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, raster, size);
+
 }
 
 void DEMO_APP::DrawStar()
@@ -1583,6 +1706,8 @@ void DEMO_APP::DrawStar()
 	ZERO_OUT(input);
 	input.ConstVertex = m_pConstBuffer;
 	input.numVertexSlot = 2;
+
+
 	DrawObj(&m_StarModel, &input, m_shaderVS, m_DefaultPS, nullptr, 0);
 
 	//	m_dcConext->PSSetShader(m_DefaultPS, NULL, 0);
@@ -1752,7 +1877,6 @@ void DEMO_APP::MappingPointLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, PtLight& p_l
 	m_plgLight = p_light;
 
 	memcpy(p_Scene.pData, &m_plgLight, sizeof(PtLight));
-
 	m_dcConext->Unmap(m_pCBufferPointLight_PS, 0);
 }
 
@@ -1919,7 +2043,6 @@ void DEMO_APP::CreateConstBuffers()
 	cBufferDesc.ByteWidth = sizeof(LIGHTING);
 	ConstantBufferData.pSysMem = &m_lgLight;
 
-
 	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBufferLight_PS);
 
 	cBufferDesc.ByteWidth = sizeof(PtLight);
@@ -1931,7 +2054,6 @@ void DEMO_APP::CreateConstBuffers()
 	ConstantBufferData.pSysMem = &m_sptLight;
 
 	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pCBufferSpotLight_PS);
-
 }
 
 bool DEMO_APP::CursorClientCheck(POINT curr)
@@ -1950,6 +2072,17 @@ bool DEMO_APP::CursorClientCheck(POINT curr)
 	return true;
 }
 
+void DEMO_APP::CreateRenderToTexture()
+{
+	//Render To Texture
+	m_iDevice->CreateRenderTargetView(m_pBackBuffer, NULL, &m_rtvRenderTargetView);
+	CubeRenderTarget;
+
+	m_rtvToCube;
+	m_vpCubeViewport;
+	m_mxCubeViewMatrix;
+	m_mxCubeProjectonMatrix;
+}
 //************************************************************
 //************ DESTRUCTION ***********************************
 //************************************************************

@@ -82,7 +82,7 @@ void Model::loadVerts(unsigned int numVerts, INPUT_VERTEX* p_verts)
 	m_vsInput = p_verts;
 }
 
-void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const unsigned int* Indices)
+void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const unsigned int* Indices, unsigned int p_num, InstanceType* p_data)
 {
 	if (device == nullptr)
 	{
@@ -127,6 +127,34 @@ void Model::CreateBuffers(ID3D11Device* device, unsigned int numIndices, const u
 
 		device->CreateBuffer(&IndexBufferDesc, &InitIndexData, &m_pIndexBuffer);
 
+	}
+
+	if (p_data != nullptr)
+	{
+		/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		// create instance buffer 
+
+		/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		//Index Buffer
+		instCount = p_num;
+		//D3D11_BUFFER_DESC
+		D3D11_BUFFER_DESC InstanceBufferDesc;
+		ZERO_OUT(InstanceBufferDesc);
+		InstanceBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		InstanceBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		InstanceBufferDesc.CPUAccessFlags = NULL;
+		InstanceBufferDesc.ByteWidth = sizeof(InstanceType)*instCount;
+		InstanceBufferDesc.MiscFlags = 0;
+
+		//D3D11_SUBRESOURCE_DATA
+		D3D11_SUBRESOURCE_DATA InstanceData;
+		InstanceData.pSysMem = p_data;
+		InstanceData.SysMemPitch = 0;
+		InstanceData.SysMemSlicePitch = 0;
+
+		device->CreateBuffer(&InstanceBufferDesc, &InstanceData, &m_pInstanceBuffer);
 	}
 }
 
@@ -175,18 +203,34 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 		p_dcContext->PSSetShaderResources(0, 1, &m_pShaderResource);
 	}
 
-
-
-
 	if (m_pSamplerState)
 	{
 		p_dcContext->PSSetSamplers(0, 1, &m_pSamplerState);
 	}
 
-	unsigned int stride = sizeof(INPUT_VERTEX);
-	unsigned int zero = 0;
 
-	p_dcContext->IASetVertexBuffers(0, 1, &m_pBuffer, &stride, &zero);
+	if (m_pInstanceBuffer)
+	{
+		unsigned int zero[2];
+		zero[0] = 0;
+		zero[1] = 0;
+
+		unsigned int stride[2];
+		stride[0] = sizeof(INPUT_VERTEX);
+		stride[1] = sizeof(InstanceType);
+
+		ID3D11Buffer* buffers[2];
+		buffers[0] = m_pBuffer;
+		buffers[1] = m_pInstanceBuffer;
+
+		p_dcContext->IASetVertexBuffers(0, 2, buffers, stride, zero);
+	}
+	else if (m_pBuffer)
+	{
+		unsigned int zero = 0;
+		unsigned int stride = sizeof(INPUT_VERTEX);
+		p_dcContext->IASetVertexBuffers(0, 1, &m_pBuffer, &stride, &zero);
+	}
 
 	p_dcContext->IASetIndexBuffer(m_pIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
@@ -199,7 +243,11 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 	{
 		p_dcContext->RSSetState(p_rasterArray[i]);
 
-		if (m_nMaxIndices > 0)
+		if (m_pInstanceBuffer && m_nMaxIndices > 0)
+		{
+			p_dcContext->DrawIndexedInstanced(m_nMaxIndices, instCount, 0, 0, 0);
+		}
+		else if (m_nMaxIndices > 0)
 		{
 			p_dcContext->DrawIndexed(m_nMaxIndices, 0, 0);
 		}
@@ -213,6 +261,10 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 	{
 		p_dcContext->RSSetState(nullptr);
 
+		if (m_pInstanceBuffer && m_nMaxIndices > 0)
+		{
+			p_dcContext->DrawIndexedInstanced(m_nMaxIndices, instCount, 0, 0, 0);
+		}
 		if (m_nMaxIndices > 0)
 		{
 			p_dcContext->DrawIndexed(m_nMaxIndices, 0, 0);
