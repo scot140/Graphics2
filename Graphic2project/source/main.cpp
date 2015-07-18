@@ -2088,7 +2088,7 @@ void DEMO_APP::CreateRenderToTexture()
 
 
 	D3D11_TEXTURE2D_DESC RTTDesc;
-	ZeroMemory(&textureDesc, sizeof(textureDesc));
+	ZeroMemory(&RTTDesc, sizeof(RTTDesc));
 	RTTDesc.Width = 400;
 	RTTDesc.Height = 400;
 	RTTDesc.MipLevels = 1;
@@ -2100,7 +2100,7 @@ void DEMO_APP::CreateRenderToTexture()
 	RTTDesc.CPUAccessFlags = 0;
 	RTTDesc.MiscFlags = 0;
 
-	m_iDevice->CreateTexture2D(&RTTDesc, NULL, CubeRenderTarget);
+	m_iDevice->CreateTexture2D(&RTTDesc, NULL, &CubeRenderTarget);
 
 	m_rtvToCube;
 	m_vpCubeViewport;
