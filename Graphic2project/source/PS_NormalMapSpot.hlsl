@@ -52,7 +52,7 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 	//Spotlight Algorithm
 	float4 lightDir = normalize(light.pos - input.WorldPos);
 
-	float surfaceRatio = saturate(dot(-lightDir, float4(light.coneDir, 1)));
+	float surfaceRatio = saturate(dot(-normalize(lightDir), float4(normalize(light.coneDir).xyz, 1)));
 
 	float spotFactor = (surfaceRatio > light.coneWidth) ? 1 : 0;
 

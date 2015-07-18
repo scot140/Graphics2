@@ -278,29 +278,21 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 
 void Model::Release()
 {
-	if (m_pBuffer)
-	{
-		m_pBuffer->Release();
-		m_pBuffer = nullptr;
-	}
+	SAFE_RELEASE(m_pInstanceBuffer);
 
-	if (m_pTexture)
-	{
-		m_pTexture->Release();
-		m_pTexture = nullptr;
-	}
+	SAFE_RELEASE(m_pSecondShaderResource);
 
-	if (m_pShaderResource)
-	{
-		m_pShaderResource->Release();
-		m_pShaderResource = nullptr;
-	}
+	SAFE_RELEASE(m_pBuffer);
+	
 
-	if (m_pSamplerState)
-	{
-		m_pSamplerState->Release();
-		m_pSamplerState = nullptr;
-	}
+	SAFE_RELEASE(m_pTexture);
+
+
+	SAFE_RELEASE(m_pShaderResource);
+	
+
+	SAFE_RELEASE(m_pSamplerState);
+	
 
 	if (m_vsInput)
 	{
@@ -309,11 +301,8 @@ void Model::Release()
 	}
 
 
-	if (m_pIndexBuffer)
-	{
-		m_pIndexBuffer->Release();
-		m_pIndexBuffer = nullptr;
-	}
+	SAFE_RELEASE(m_pIndexBuffer);
+	
 }
 
 Model::~Model()

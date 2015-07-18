@@ -9,6 +9,7 @@
 #define RASTER_NUMPIXEL (RASTER_WIDTH * RASTER_HEIGHT)
 #define ALIGN_REGISTER _declspec(align(16))
 #define ZERO_OUT(x) ZeroMemory(&x,sizeof(x));
+#define SAFE_RELEASE(x) if(x) { x->Release(); x = nullptr; }
 
 #include <d3d11.h>
 #pragma comment(lib, "d3d11.lib")

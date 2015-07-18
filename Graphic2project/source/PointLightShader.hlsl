@@ -31,7 +31,7 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 
 	float4 lightDirection = normalize(light.pos - input.WorldPos);
 
-	float ratio = saturate(dot(lightDirection.xyz, input.norm));
+	float ratio = saturate(dot(normalize(lightDirection.xyz), normalize(input.norm)));
 
 	float atten = 1.0 - saturate(length(light.pos - input.WorldPos) / light.range);
 
