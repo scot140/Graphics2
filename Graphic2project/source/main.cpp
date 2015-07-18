@@ -1080,11 +1080,11 @@ void DEMO_APP::WorldCameraProjectionSetup()
 
 	RECT aspect;
 	GetClientRect(window, &aspect);
-	
+
 	float ratio = (float)aspect.right / (float)aspect.bottom;
 
 	XMMATRIX projection = XMMatrixIdentity();
-	projection = XMMatrixPerspectiveFovLH(FOV, ratio , ZNEAR, ZFAR);
+	projection = XMMatrixPerspectiveFovLH(FOV, ratio, ZNEAR, ZFAR);
 	XMStoreFloat4x4(&m_mxProjectonMatrix, projection);
 
 
@@ -2084,13 +2084,30 @@ void DEMO_APP::CreateRenderToTexture()
 {
 	//Render To Texture
 	m_iDevice->CreateRenderTargetView(m_pBackBuffer, NULL, &m_rtvRenderTargetView);
-	CubeRenderTarget;
+
+
+
+	D3D11_TEXTURE2D_DESC RTTDesc;
+	ZeroMemory(&textureDesc, sizeof(textureDesc));
+	RTTDesc.Width = 400;
+	RTTDesc.Height = 400;
+	RTTDesc.MipLevels = 1;
+	RTTDesc.ArraySize = 1;
+	RTTDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	RTTDesc.SampleDesc.Count = 1;
+	RTTDesc.Usage = D3D11_USAGE_DEFAULT;
+	RTTDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	RTTDesc.CPUAccessFlags = 0;
+	RTTDesc.MiscFlags = 0;
+
+	m_iDevice->CreateTexture2D(&RTTDesc, NULL, CubeRenderTarget);
 
 	m_rtvToCube;
 	m_vpCubeViewport;
 	m_mxCubeViewMatrix;
 	m_mxCubeProjectonMatrix;
 }
+
 //************************************************************
 //************ DESTRUCTION ***********************************
 //************************************************************
