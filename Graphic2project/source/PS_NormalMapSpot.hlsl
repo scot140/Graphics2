@@ -14,9 +14,9 @@ struct Light
 	float power;
 	float3 coneDir;
 	float coneWidth; // use Radians please do not forget
+	float3 padding;
 	float4 pos;
 	float4 color;
-	float3 padding;
 };
 
 cbuffer cPerPixel : register(b0)
@@ -52,9 +52,9 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 	//Spotlight Algorithm
 	float4 lightDir = normalize(light.pos - input.WorldPos);
 
-	float surfaceRatio = saturate(dot(-lightDir, float4(light.coneDir, 0)));
+	float surfaceRatio = saturate(dot(-lightDir, float4(light.coneDir, 1)));
 
-	float spotFactor = (surfaceRatio < light.coneWidth) ? 1 : 0;
+	float spotFactor = (surfaceRatio > light.coneWidth) ? 1 : 0;
 
 	float lightRatio = 0;
 
@@ -66,5 +66,5 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 	float4 finalColor = spotFactor * lightRatio * textureColor;
 
 
-		return finalColor;
+		return float4(finalColor.rgb, textureColor.a);
 }

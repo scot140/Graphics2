@@ -7,6 +7,8 @@ struct INPUT_VERTEX
 	float3 norm: NORM;
 	float2 uv : UV;
 	float4 tangents :TAN;
+	float3 padding : PADDING;
+
 };
 
 struct OUTPUT_VERTEX
@@ -51,7 +53,7 @@ OUTPUT_VERTEX main(INPUT_VERTEX fromVertexBuffer)
 
 	sendToRasterizer.uv = fromVertexBuffer.uv;
 
-	///getting the three vectors fot he TBN matrix
+	///getting the three vectors for the TBN matrix
 	float4 normal = float4(fromVertexBuffer.norm.xyz,0);
 
 		sendToRasterizer.norm = mul(normal, WorldMatrix).xyz;

@@ -233,7 +233,7 @@ public:
 	void DrawObj(Model* p_model, BufferInput*p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size);
 	void DrawInstanceObj(Model* p_model, BufferInput* p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size);
 	void DrawStar();
-	
+
 	void DEMO_APP::DrawStar(Model* p_star); // only use for star models
 
 	void TransparentStarsDraw();
@@ -457,9 +457,10 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "NORM", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TAN", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		{ "TAN", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "PADDING", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
-	m_iDevice->CreateInputLayout(element, 5, VertexShader, sizeof(VertexShader), &m_pVertexInput);
+	m_iDevice->CreateInputLayout(element, 6, VertexShader, sizeof(VertexShader), &m_pVertexInput);
 
 	D3D11_INPUT_ELEMENT_DESC InstanceElement[] =
 	{
@@ -515,12 +516,12 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	InstanceType* triangle;
 	triangle = new InstanceType[4];
-	triangle[0].pos = XMFLOAT4(-1.5f, -1.5f, 5.0f, 1.0f);
-	triangle[1].pos = XMFLOAT4(-1.5f, 1.5f, 5.0f, 1.0f);
-	triangle[2].pos = XMFLOAT4(1.5f, -1.5f, 5.0f, 1.0f);
-	triangle[3].pos = XMFLOAT4(1.5f, 1.5f, 5.0f, 1.0f);
+	triangle[0].pos = XMFLOAT4(-2.5f, 2.5f, 0, 1.0f);
+	triangle[1].pos = XMFLOAT4(-2.5f, 0, 0, 1.0f);
+	triangle[2].pos = XMFLOAT4(2.5f, 2.5f, 0, 1.0f);
+	triangle[3].pos = XMFLOAT4(2.5f, 0, 0, 1.0f);
 
-	CreateObj("resource/Models/Dorumon.obj", Dorumon, L"resource/Texture/Dorumon.dds", &SamplerDesc,nullptr ,5, triangle);
+	CreateObj("resource/Models/Dorumon.obj", Dorumon, L"resource/Texture/Dorumon.dds", &SamplerDesc, nullptr, 4, triangle);
 	delete[] triangle;
 	triangle = nullptr;
 
@@ -536,7 +537,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	CreateObj("resource/Models/DinoTigermon.obj", DinoTiger, L"resource/Texture/DinoTigermon.dds", &SamplerDesc);
 
-	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(-1, 0, -3);
+	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 0, -3);
 
 	temp = XMMatrixRotationY(XMConvertToRadians(180)) * temp;
 
@@ -765,15 +766,15 @@ bool DEMO_APP::Run()
 
 	if (GetAsyncKeyState('0') & 0x1)
 	{
-
 		XMMATRIX view = XMMatrixIdentity();
-		view *= XMMatrixTranslation(m_mxViewMatrix._41, -m_mxViewMatrix._42, m_mxViewMatrix._43);
-
-		//Saving the camera
+		//for the Look At Function
+		XMVECTOR pos = XMLoadFloat3(&XMFLOAT3(0, 1, -4));
+		XMVECTOR focus = XMLoadFloat3(&XMFLOAT3(0, 0, 0));
+		XMVECTOR height = XMLoadFloat3(&XMFLOAT3(0, 2, 0));
+		//Creating the Camera
+		view = XMMatrixLookAtLH(pos, focus, height);
 		XMStoreFloat4x4(&m_mxViewMatrix, view);
-
 		SceneMatrices.matrix_sceneCamera = m_mxViewMatrix;
-
 		//Skybox
 		view = XMMatrixInverse(nullptr, view);
 		XMStoreFloat4x4(&SkyBox.m_objMatrix.m_mxConstMatrix, view);
@@ -850,17 +851,19 @@ bool DEMO_APP::Run()
 	XMFLOAT3 pos = m_StarModel.GetModelPosition();
 
 	PointLight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 1);
-	PointLight.power = 0;
-	PointLight.range = 50;
+	PointLight.power = 14;
+	PointLight.range = 100;
 	PointLight.color = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	ZERO_OUT(PointLight.padding);
 
 	MappingPointLight(resource, PointLight);
 
-	SpotLight.pos = XMFLOAT4(0, 2, 0, 1);
+	SpotLight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 1);
 	SpotLight.power = 64;
 	SpotLight.coneDir = XMFLOAT3(0, -1, 0);
-	SpotLight.coneWidth = cos(XMConvertToRadians(20.0f));
+	SpotLight.coneWidth = cos(XMConvertToRadians(30.0f));
 	SpotLight.color = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	ZERO_OUT(SpotLight.padding);
 
 	MappingSpotLight(resource, SpotLight);
 
@@ -1075,10 +1078,15 @@ void DEMO_APP::WorldCameraProjectionSetup()
 	/*******************************************************************/
 	//Setting the Projection Matrix
 
+	RECT aspect;
+	GetClientRect(window, &aspect);
+	
+	float ratio = (float)aspect.right / (float)aspect.bottom;
 
 	XMMATRIX projection = XMMatrixIdentity();
-	projection = XMMatrixPerspectiveFovLH(FOV, ASPECT_RATIO, ZNEAR, ZFAR);
+	projection = XMMatrixPerspectiveFovLH(FOV, ratio , ZNEAR, ZFAR);
 	XMStoreFloat4x4(&m_mxProjectonMatrix, projection);
+
 
 	projection = XMMatrixIdentity();
 	projection = XMMatrixPerspectiveFovLH(FOV, 200 / 200, ZNEAR, ZFAR);
@@ -1632,7 +1640,7 @@ void DEMO_APP::CreateObj(const char* file, Model& p_model, const wchar_t* filena
 
 	p_model.CreateTexture(m_iDevice, filename, Secondfilename, p_sampler);
 
-	p_model.CreateBuffers(m_iDevice, maxIndex, ObjectIndices,numInstance,instances);
+	p_model.CreateBuffers(m_iDevice, maxIndex, ObjectIndices, numInstance, instances);
 
 }
 

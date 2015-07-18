@@ -34,6 +34,7 @@ struct INPUT_VERTEX
 	XMFLOAT3 normals;
 	XMFLOAT2 uv;
 	XMFLOAT4 tangents;
+	XMFLOAT3 padding;
 };
 
 struct InstanceType
@@ -51,27 +52,27 @@ struct ANIMATION
 
 struct LIGHTING
 {
+	float padding;
 	XMFLOAT3 dir;
 	XMFLOAT4 ambient;
 	XMFLOAT4 diffuse;
-	float padding;
 };
 
 struct PtLight
 {
-	XMFLOAT4 pos;
 	float range;
 	float power;
-	XMFLOAT4 color;
 	XMFLOAT2 padding;
+	XMFLOAT4 color;
+	XMFLOAT4 pos;
 };
 
 struct SptLight
 {
 	float power;
-	ALIGN_REGISTER XMFLOAT3 coneDir;
-	ALIGN_REGISTER float coneWidth; // use Radians please do not forget
-	ALIGN_REGISTER XMFLOAT4 pos;
-	ALIGN_REGISTER XMFLOAT4 color;
+	XMFLOAT3 coneDir;
+	float coneWidth; // use Radians please do not forget
 	XMFLOAT3 padding;
+	XMFLOAT4 pos;
+	XMFLOAT4 color;
 };

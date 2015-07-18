@@ -7,7 +7,8 @@ struct INPUT_VERTEX
 	float3 norm: NORM;
 	float2 uv : UV;
 	float4 tangents :TAN;
-	// instance pos
+	float3 padding : PADDING;
+
 };
 
 struct OUTPUT_VERTEX

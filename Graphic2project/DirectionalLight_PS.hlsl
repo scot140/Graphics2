@@ -10,6 +10,7 @@ struct OUTPUT_VERTEX
 
 struct Light
 {
+	float padding;
 	float3 dir;
 	float4 ambient;
 	float4 diffuse;

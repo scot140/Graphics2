@@ -11,6 +11,7 @@ struct OUTPUT_VERTEX
 
 struct Light
 {
+	float padding;
 	float3 dir;
 	float4 ambient;
 	float4 diffuse;
@@ -30,12 +31,12 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 {
 	float4 textureColor = baseTexture.Sample(filter, input.uv);
 	float3 newNormal = normalMap.Sample(filter, input.uv).xyz;
-	//newNormal.g = 1 - newNormal.g;
+	
 
 	//resizing the range
 	newNormal = (newNormal * 2.0f) - 1.0f;
 	//normalizing the input values
-	float3 norm = input.norm;
+	float3 norm = normalize(input.norm);
 	float3 Tangent = normalize(input.Tangent);
 	float3 Binormal = normalize(input.Binormal);
 

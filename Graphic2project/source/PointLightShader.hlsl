@@ -9,11 +9,11 @@ struct OUTPUT_VERTEX
 
 struct Light
 {
-	float4 pos;
 	float  range;
 	float  power;
-	float4 ambient;
 	float2 padding;
+	float4 ambient;
+	float4 pos;
 };
 
 cbuffer cPerPixel : register(b0)
@@ -39,5 +39,5 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 
 	float4 finalColor = ratio * light.ambient * color * atten;
 
-	return float4(finalColor.xyz,color.a);
+		return float4(finalColor.rgb, color.a);
 }
