@@ -190,11 +190,20 @@ class DEMO_APP
 	bool flip = false;
 
 	//Render To Texture
-	ID3D11Texture2D* CubeRenderTarget;
-	ID3D11RenderTargetView* m_rtvToCube;
-	D3D11_VIEWPORT m_vpCubeViewport;
-	XMFLOAT4X4 m_mxCubeViewMatrix;
-	XMFLOAT4X4 m_mxCubeProjectonMatrix;
+	Scene RenderTTexture;
+	ID3D11Texture2D* m_RttCubeRenderTarget;
+	ID3D11RenderTargetView* m_RttrtvToCube;
+	ID3D11ShaderResourceView* m_RTTShaderResource;
+	D3D11_VIEWPORT m_RttvpCubeViewport;
+
+	XMFLOAT4X4 m_RttmxCubeViewMatrix;
+
+	XMFLOAT4X4 m_RttmxCubeProjectonMatrix;
+
+	//depth perspective
+	ID3D11Texture2D* m_RttZBuffer;
+	ID3D11DepthStencilView* m_RttDepthView;
+	ID3D11DepthStencilState * m_RttpDepthState;
 
 public:
 	//Constbuffer manipulators
@@ -247,6 +256,7 @@ public:
 	void MappingPointLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, PtLight& p_light);
 	void MappingSpotLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, SptLight& p_light);
 	void RedrawSceneBuffer(D3D11_MAPPED_SUBRESOURCE& p_Scene, Scene& p_Matrix);
+	void RenderToTextureSceneBuffer(D3D11_MAPPED_SUBRESOURCE& p_Scene, Scene& p_Matrix);
 	void CreateConstBuffers();
 	void BackAndForth(float _comp, float& p_trans);
 	int DistanceFormula(POINT LH, POINT RH);
@@ -459,6 +469,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 		{ "TAN", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "PADDING", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
+
 	m_iDevice->CreateInputLayout(element, 6, VertexShader, sizeof(VertexShader), &m_pVertexInput);
 
 	D3D11_INPUT_ELEMENT_DESC InstanceElement[] =
@@ -470,6 +481,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 		{ "TAN", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "IPOSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_INSTANCE_DATA, 1 }
 	};
+
 	m_iDevice->CreateInputLayout(InstanceElement, 6, VS_Instancing, sizeof(VS_Instancing), &m_pInstanceInput);
 
 	//DirectionLight
@@ -478,6 +490,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	DirectionLight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
 	CreateConstBuffers();
+	CreateRenderToTexture();
 
 	//cube model
 	XMMATRIX temp;
@@ -501,7 +514,6 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	XMStoreFloat4x4(&m_multiStarModel[2].m_objMatrix.m_mxConstMatrix, temp);
 
-
 	CreateSkyBox(&SamplerDesc);
 
 	Pyramid.SetAnimation(4, (float)512);
@@ -512,9 +524,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 	XMStoreFloat4x4(&Pyramid.m_objMatrix.m_mxConstMatrix, temp);
 
-
 	//Drawing a dorumon
-
 	InstanceType* triangle;
 	triangle = new InstanceType[4];
 	triangle[0].pos = XMFLOAT4(-2.5f, 2.5f, 0, 1.0f);
@@ -551,7 +561,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 #pragma region Creating Dorugreymon
 	CreateObj("resource/Models/DoruGreymon.obj", DoruGreymon, L"resource/Texture/DoruGreymon.dds", &SamplerDesc);
 
-	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 0, 6.45f);
+	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 0, 2.0f);
 
 	temp = XMMatrixRotationY(XMConvertToRadians(180)) * temp;
 
@@ -586,16 +596,6 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 #pragma endregion
 
-#pragma region Cube
-	CreateObjCube("resource/Models/cube.obj", m_mdCube, L"resource/Texture/Blank.dds", &SamplerDesc);
-
-	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(2, 1.75f, -1);
-
-	XMStoreFloat4x4(&m_mdCube.m_objMatrix.m_mxConstMatrix, temp);
-
-#pragma endregion
-
-
 	//Getting the cursor pos
 	GetCursorPos(&startPoint);
 
@@ -608,6 +608,71 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	ModelPixelInput.ConstPixel = &m_pConstBufferLight_PS;
 	ModelPixelInput.ConstVertex = m_pConstBuffer;
 	ModelPixelInput.numVertexSlot = 2;
+
+#pragma region Cube
+
+#pragma region RenderToTexture
+
+	float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+	UINT sampleMask = 0xffffffff;
+
+	m_dcConext->OMSetBlendState(m_pBlendState, blendFactor, sampleMask);
+
+	//Binding the depthState/ depthBuffer
+	m_dcConext->OMSetDepthStencilState(m_RttpDepthState, 1);
+
+	//Binding the RendertTarget
+	m_dcConext->OMSetRenderTargets(1, &m_RttrtvToCube, m_RttDepthView);
+
+	//binding the viewports
+	m_dcConext->RSSetViewports(1, &m_RttvpCubeViewport);
+
+	// clearing the screen to that color
+	float color[4];
+	color[0] = 0;
+	color[1] = 0;
+	color[2] = 1;
+	color[3] = 1;
+
+	m_dcConext->ClearDepthStencilView(m_RttDepthView, D3D11_CLEAR_DEPTH, 1, 0);
+
+	m_dcConext->ClearRenderTargetView(m_RttrtvToCube, color);
+
+#pragma region DoruGreymon constantBuffer
+
+	D3D11_MAPPED_SUBRESOURCE resource;
+
+	XMMATRIX matrix;
+
+	matrix = XMLoadFloat4x4(&DoruGreymon.m_objMatrix.m_mxConstMatrix);
+
+	XMStoreFloat4x4(&DoruGreymon.m_objMatrix.m_mxConstMatrix, matrix);
+
+
+	MappingObjMatrix(resource, DoruGreymon.m_objMatrix);
+
+	//////////////////////////////////////////////////////////////////////
+	RedrawSceneBuffer(resource, RenderTTexture);
+
+#pragma endregion
+
+	DrawObj(&DoruGreymon, &ModelPixelInput, m_LightVS, m_PScurrentShader, nullptr, 0);
+
+	m_snSwapChain->Present(1, 0);
+
+#pragma endregion
+
+	CreateObjCube("resource/Models/cube.obj", m_mdCube, L"resource/Texture/Blank.dds", &SamplerDesc);
+
+	m_mdCube.SetShaderResourceView(m_RTTShaderResource);
+
+	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(2, 1.75f, -1);
+
+	XMStoreFloat4x4(&m_mdCube.m_objMatrix.m_mxConstMatrix, temp);
+
+#pragma endregion
+
 	/// debug
 #if _DEBUG
 	m_iDevice->QueryInterface(__uuidof(ID3D11Debug), reinterpret_cast<void**>(&m_dgDebug));
@@ -634,6 +699,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 bool DEMO_APP::Run()
 {
+
 	m_DepthView = g_DepthView;
 	m_pDepthState = g_pDepthState;
 	m_rtvRenderTargetView = g_rtvRenderTargetView;
@@ -820,6 +886,7 @@ bool DEMO_APP::Run()
 	D3D11_MAPPED_SUBRESOURCE SceneResource;
 	XMMATRIX matrix;
 	BufferInput input;
+	/// remapping the scene matrix
 	RedrawSceneBuffer(SceneResource, SceneMatrices);
 
 	UpdateSkyBox(rotation);
@@ -882,7 +949,7 @@ bool DEMO_APP::Run()
 
 #pragma endregion
 
-	DrawObj(&m_mdCube, &ModelPixelInput, m_LightVS, m_PScurrentShader, nullptr, 0);
+	DrawObj(&m_mdCube, &ModelPixelInput, m_shaderVS, m_shaderPS, nullptr, 0);
 
 #pragma region Dorumon constantBuffer
 	matrix = XMLoadFloat4x4(&Dorumon.m_objMatrix.m_mxConstMatrix);
@@ -934,7 +1001,7 @@ bool DEMO_APP::Run()
 
 	DrawObj(&DoruGreymon, &ModelPixelInput, m_LightVS, m_PScurrentShader, nullptr, 0);
 
-#pragma region DoruGreymon constantBuffer
+#pragma region Dorugoramon constantBuffer
 
 	matrix = XMLoadFloat4x4(&Dorugoramon.m_objMatrix.m_mxConstMatrix);
 
@@ -954,7 +1021,6 @@ bool DEMO_APP::Run()
 	ID3D11RasterizerState* rasterArray[2];
 	rasterArray[0] = m_pRasterStateFrontCull;
 	rasterArray[1] = m_pRasterState;
-
 
 #pragma region Pyramid constantBuffer
 
@@ -998,14 +1064,14 @@ bool DEMO_APP::Run()
 #pragma region Dorumon Redraw constantBuffer
 
 		//////////////////////////////////////////////////////////////////////
-		//RedrawSceneBuffer(&Dorumon, SceneResource, m_miniScene);
+
 
 #pragma endregion
 
 #pragma region Star constantBuffer
 		//////////////////////////////////////////////////////////////////////
 
-		//RedrawSceneBuffer(&m_StarModel, SceneResource, m_miniScene);
+
 
 #pragma endregion
 
@@ -1064,7 +1130,6 @@ void DEMO_APP::WorldCameraProjectionSetup()
 	view = XMMatrixLookAtLH(pos, focus, height);
 	//Saving the camera
 	XMStoreFloat4x4(&m_mxViewMatrix, view);
-
 
 	//for the Look At Function
 	pos = XMLoadFloat3(&XMFLOAT3(0, 2.0f, 0.0f));
@@ -1689,7 +1754,7 @@ void DEMO_APP::DrawObj(Model* p_model, BufferInput* p_input, ID3D11VertexShader*
 void DEMO_APP::DrawStar()
 {
 	D3D11_MAPPED_SUBRESOURCE resource;
-	D3D11_MAPPED_SUBRESOURCE SceneResource;
+	//D3D11_MAPPED_SUBRESOURCE SceneResource;
 	XMMATRIX matrix;
 
 #pragma region Star constantBuffer
@@ -1709,7 +1774,6 @@ void DEMO_APP::DrawStar()
 
 
 	//////////////////////////////////////////////////////////////////////
-	RedrawSceneBuffer(SceneResource, m_scnMatrix);
 #pragma endregion
 
 	BufferInput input;
@@ -1730,7 +1794,7 @@ void DEMO_APP::DrawStar()
 void DEMO_APP::DrawStar(Model* p_star)
 {
 	D3D11_MAPPED_SUBRESOURCE resource;
-	D3D11_MAPPED_SUBRESOURCE SceneResource;
+	//D3D11_MAPPED_SUBRESOURCE SceneResource;
 	XMMATRIX matrix;
 
 #pragma region Star constantBuffer
@@ -1750,7 +1814,7 @@ void DEMO_APP::DrawStar(Model* p_star)
 
 
 	//////////////////////////////////////////////////////////////////////
-	RedrawSceneBuffer(SceneResource, m_scnMatrix);
+
 #pragma endregion
 
 	BufferInput input;
@@ -1949,12 +2013,11 @@ void DEMO_APP::BackAndForth(float _comp, float& p_trans)
 void DEMO_APP::UpdateSkyBox(XMFLOAT4X4& rot)
 {
 	D3D11_MAPPED_SUBRESOURCE resource;
-	D3D11_MAPPED_SUBRESOURCE SceneResource;
+	//	D3D11_MAPPED_SUBRESOURCE SceneResource;
 
 	XMMATRIX matrix = XMLoadFloat4x4(&SkyBox.m_objMatrix.m_mxConstMatrix);
 
 #pragma region SkyBox ConstantBuffer
-
 	ZeroMemory(&resource, sizeof(resource));
 
 	m_dcConext->Map(m_pConstBuffer[OBJECT], 0, D3D11_MAP_WRITE_DISCARD, NULL, &resource);
@@ -1986,8 +2049,6 @@ void DEMO_APP::UpdateSkyBox(XMFLOAT4X4& rot)
 	m_dcConext->Unmap(m_pConstBuffer[OBJECT], 0);
 
 	//////////////////////////////////////////////////////////////////////
-	RedrawSceneBuffer(SceneResource, m_scnMatrix);
-
 #pragma endregion
 
 	BufferInput input;
@@ -2084,11 +2145,8 @@ bool DEMO_APP::CursorClientCheck(POINT curr)
 
 void DEMO_APP::CreateRenderToTexture()
 {
+
 	//Render To Texture
-	m_iDevice->CreateRenderTargetView(m_pBackBuffer, NULL, &m_rtvRenderTargetView);
-
-
-
 	D3D11_TEXTURE2D_DESC RTTDesc;
 	ZeroMemory(&RTTDesc, sizeof(RTTDesc));
 	RTTDesc.Width = 400;
@@ -2101,13 +2159,96 @@ void DEMO_APP::CreateRenderToTexture()
 	RTTDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 	RTTDesc.CPUAccessFlags = 0;
 	RTTDesc.MiscFlags = 0;
+	//Creating the image
+	m_iDevice->CreateTexture2D(&RTTDesc, NULL, &m_RttCubeRenderTarget);
 
-	m_iDevice->CreateTexture2D(&RTTDesc, NULL, &CubeRenderTarget);
 
-	m_rtvToCube;
-	m_vpCubeViewport;
-	m_mxCubeViewMatrix;
-	m_mxCubeProjectonMatrix;
+	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
+
+	rtvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	rtvDesc.Texture2D.MipSlice = 0;
+
+	// Create the render target view.
+	m_iDevice->CreateRenderTargetView(m_RttCubeRenderTarget, &rtvDesc, &m_RttrtvToCube);
+
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC RTTViewDesc;
+	RTTViewDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	RTTViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	RTTViewDesc.Texture2D.MostDetailedMip = 0;
+	RTTViewDesc.Texture2D.MipLevels = 1;
+
+	// Create the shader resource view.
+	m_iDevice->CreateShaderResourceView(m_RttCubeRenderTarget, &RTTViewDesc, &m_RTTShaderResource);
+
+
+#pragma region Depth Creation
+
+	//setting up the depthbuffer
+	D3D11_TEXTURE2D_DESC DepthDesc;
+	//zero-ing it out
+	ZeroMemory(&DepthDesc, sizeof(DepthDesc));
+
+	DepthDesc.Width = 400;
+	DepthDesc.Height = 400;
+	DepthDesc.MipLevels = 1;
+	DepthDesc.ArraySize = 1;
+	DepthDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	DepthDesc.SampleDesc.Count = 1;
+	DepthDesc.SampleDesc.Quality = 0;
+	DepthDesc.Usage = D3D11_USAGE_DEFAULT;
+	DepthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	DepthDesc.CPUAccessFlags = 0;
+	DepthDesc.MiscFlags = 0;
+
+	m_iDevice->CreateTexture2D(&DepthDesc, NULL, &m_RttZBuffer);
+
+	D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
+
+	DefaultDepthDesc(&depthStencilDesc);
+
+	m_iDevice->CreateDepthStencilState(&depthStencilDesc, &m_RttpDepthState);
+
+	D3D11_DEPTH_STENCIL_VIEW_DESC descDepthView;
+	ZeroMemory(&descDepthView, sizeof(descDepthView));
+	descDepthView.Format = DXGI_FORMAT_D32_FLOAT;
+	descDepthView.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	descDepthView.Texture2D.MipSlice = 0;
+
+	m_iDevice->CreateDepthStencilView(m_RttZBuffer, &descDepthView, &m_RttDepthView);
+
+#pragma endregion
+
+	//m_vpCubeViewport;
+
+	m_RttvpCubeViewport.TopLeftX = 0;
+	m_RttvpCubeViewport.TopLeftY = 0;
+	m_RttvpCubeViewport.Height = 400;
+	m_RttvpCubeViewport.Width = 400;
+	m_RttvpCubeViewport.MaxDepth = 1;
+	m_RttvpCubeViewport.MinDepth = 0;
+
+	//m_mxCubeViewMatrix;
+	XMMATRIX view = XMMatrixIdentity();
+
+	//for the Look At Function
+	XMVECTOR pos = XMLoadFloat3(&XMFLOAT3(0, 2, 0));
+	XMVECTOR focus = XMLoadFloat3(&XMFLOAT3(0, 0, 2.0f));
+	XMVECTOR height = XMLoadFloat3(&XMFLOAT3(0, 2, 0));
+
+	//Creating the Camera
+	view = XMMatrixLookAtLH(pos, focus, height);
+	//Saving the camera
+	XMStoreFloat4x4(&m_RttmxCubeViewMatrix, view);
+	RenderTTexture.matrix_sceneCamera = m_RttmxCubeViewMatrix;
+
+	//m_mxCubeProjectonMatrix;
+	XMMATRIX projection = XMMatrixIdentity();
+	projection = XMMatrixPerspectiveFovLH(FOV, 1, ZNEAR, ZFAR);
+	XMStoreFloat4x4(&m_RttmxCubeProjectonMatrix, projection);
+	RenderTTexture.matrix_Projection = m_RttmxCubeProjectonMatrix;
+
 }
 
 //************************************************************
@@ -2129,7 +2270,6 @@ bool DEMO_APP::ShutDown()
 	SAFE_RELEASE(m_psNormalMapPoint);
 	SAFE_RELEASE(m_psNormalMapSpot);
 
-
 	SAFE_RELEASE(m_PScurrentShader);
 	SAFE_RELEASE(m_PScurrentNormalShader);
 
@@ -2141,8 +2281,8 @@ bool DEMO_APP::ShutDown()
 	SAFE_RELEASE(m_pCBufferPointLight_PS);
 	SAFE_RELEASE(m_pCBufferSpotLight_PS);
 
-	SAFE_RELEASE(CubeRenderTarget);
-	SAFE_RELEASE(m_rtvToCube);
+	SAFE_RELEASE(m_RttCubeRenderTarget);
+	SAFE_RELEASE(m_RttrtvToCube);
 	SAFE_RELEASE(m_shaderVS);
 	SAFE_RELEASE(m_DefaultPS);
 	SAFE_RELEASE(m_SkyboxPS);
@@ -2261,21 +2401,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			SAFE_RELEASE(g_pDepthState);
 			SAFE_RELEASE(g_rtvRenderTargetView);
 
-
 			g_dcConext->Flush();
-			HRESULT hr;
 
+			HRESULT hr;
 			// Preserve the existing buffer count and format.
 			// Automatically choose the width and height to match the client rect for HWNDs.
 			hr = g_snSwapChain->ResizeBuffers(1, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
-
 			// Get buffer and create a render-target-view.
 			hr = g_snSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
 				(void**)&g_pBackBuffer);
 			// Perform error handling here!
 			hr = g_iDevice->CreateRenderTargetView(g_pBackBuffer, NULL,
 				&g_rtvRenderTargetView);
-
 			// Perform error handling here!
 #pragma region Depth Creation
 			D3D11_TEXTURE2D_DESC temp;
@@ -2306,7 +2443,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			descDepthView.Texture2D.MipSlice = 0;
 
 			g_iDevice->CreateDepthStencilView(g_ZBuffer, &descDepthView, &g_DepthView);
-
 #pragma endregion
 
 #pragma region //Creation of the RasterizerState
@@ -2326,7 +2462,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			g_dcConext->OMSetRenderTargets(1, &g_rtvRenderTargetView, g_DepthView);
 
 			// Set up the viewport.
-
 			m_vpViewPort.Width = (float)window.right;
 			m_vpViewPort.Height = (float)window.bottom;
 			m_vpViewPort.MinDepth = 0.0f;
@@ -2338,6 +2473,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			XMMATRIX projection;
 			projection = XMMatrixPerspectiveFovLH(FOV, (float)window.right / (float)window.bottom, ZNEAR, ZFAR);
 			XMStoreFloat4x4(&SceneMatrices.matrix_Projection, projection);
+
+			break;
 		}
 
 	}

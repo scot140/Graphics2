@@ -20,6 +20,7 @@ Model::Model()
 	ZeroMemory(&m_aniAnimaiton, sizeof(ANIMATION));
 }
 
+
 void Model::ScaleModel(float size)
 {
 
@@ -276,6 +277,23 @@ void Model::Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexIn
 	}
 }
 
+void Model::SetShaderResourceView(ID3D11ShaderResourceView* main, ID3D11ShaderResourceView* second)
+{
+	if (main)
+	{
+		SAFE_RELEASE(m_pShaderResource);
+		m_pShaderResource = main;
+		m_pShaderResource->AddRef();
+	}
+
+	if (second)
+	{
+		SAFE_RELEASE(m_pSecondShaderResource);
+		m_pSecondShaderResource = second;
+		m_pSecondShaderResource->AddRef();
+	}
+}
+
 void Model::Release()
 {
 	SAFE_RELEASE(m_pInstanceBuffer);
@@ -283,16 +301,16 @@ void Model::Release()
 	SAFE_RELEASE(m_pSecondShaderResource);
 
 	SAFE_RELEASE(m_pBuffer);
-	
+
 
 	SAFE_RELEASE(m_pTexture);
 
 
 	SAFE_RELEASE(m_pShaderResource);
-	
+
 
 	SAFE_RELEASE(m_pSamplerState);
-	
+
 
 	if (m_vsInput)
 	{
@@ -302,7 +320,7 @@ void Model::Release()
 
 
 	SAFE_RELEASE(m_pIndexBuffer);
-	
+
 }
 
 Model::~Model()

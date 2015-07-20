@@ -36,7 +36,7 @@ public:
 	void CreateTexture(ID3D11Device* device, const wchar_t* filename, const wchar_t* Secondfilename, D3D11_SAMPLER_DESC* p_sampler);
 	void CreateTexture(ID3D11Device* device, D3D11_SAMPLER_DESC* SamplerDesc, D3D11_TEXTURE2D_DESC* Texture, D3D11_SUBRESOURCE_DATA* SubResource);
 	void Draw(ID3D11DeviceContext* p_dcContext, ID3D11InputLayout*p_pVertexInput, D3D11_PRIMITIVE_TOPOLOGY p_Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST, ID3D11RasterizerState** p_rasterArray = nullptr, unsigned int numRaster = 0);
-
+	void SetShaderResourceView(ID3D11ShaderResourceView* main = nullptr, ID3D11ShaderResourceView* second = nullptr);
 	//destructor
 	void Release();
 	virtual ~Model();
