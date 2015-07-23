@@ -35,21 +35,23 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 	
 	//resizing the range
 	newNormal = (newNormal * 2.0f) - 1.0f;
+	
 	//normalizing the input values
 	float3 norm = normalize(input.norm);
-		float3 Tangent = normalize(input.Tangent);
-		float3 Binormal = normalize(input.Binormal);
-
-		float3x3 MatrixTBN;
+	float3 Tangent = normalize(input.Tangent);
+	float3 Binormal = normalize(input.Binormal);
+	
+	float3x3 MatrixTBN;
+	
 	//creating a TBN matriz
 	MatrixTBN[0] = Tangent;
 	MatrixTBN[1] = Binormal;
 	MatrixTBN[2] = norm;
-
+	
 	newNormal = mul(newNormal, MatrixTBN);
-
+	
 	//Point light Algorithm
-
+	
 	////////////////////////////
 	float4 lightDirection = normalize(light.pos - input.WorldPos);
 

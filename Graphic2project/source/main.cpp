@@ -93,6 +93,20 @@ struct BufferInput
 	unsigned int numVertexSlot;
 };
 
+struct ThreadStruct
+{
+	string file;
+	wstring filename;
+	Model* p_model;
+	D3D11_SAMPLER_DESC* p_sampler;
+	wstring Secondfilename;
+	unsigned int numInstance;
+	InstanceType* instances;
+	bool* m_lock = false;
+	mutex* m_pThreadLock;
+	condition_variable* m_pCondition;
+};
+
 class DEMO_APP
 {
 	HINSTANCE						application;
@@ -225,6 +239,7 @@ public:
 
 	///models
 	Model m_StarModel;
+	Model m_StarModel2;
 	Model Pyramid;
 	Model Dorumon;
 	Model SkyBox;
@@ -248,14 +263,18 @@ public:
 
 	void CreateObj(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler, const wchar_t* Secondfilename = nullptr, unsigned int numInstance = 0, InstanceType* instances = nullptr);
 
+	void MultiThreadCreateObj(ThreadStruct* p_thread);
 
 	void CreateObjCube(const char* file, Model& p_model, const wchar_t* filename, D3D11_SAMPLER_DESC* p_sampler, const wchar_t* Secondfilename = nullptr);
 
 	void DrawObj(Model* p_model, BufferInput*p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size);
 	void DrawInstanceObj(Model* p_model, BufferInput* p_input, ID3D11VertexShader* p_shaderVS, ID3D11PixelShader* p_shaderPS, ID3D11RasterizerState** raster, unsigned int size);
-	void DrawStar();
+	void DrawStar(Model* p_model);
 
-	void DEMO_APP::DrawStar(Model* p_star); // only use for star models
+	void DEMO_APP::CreateThreadStruct(ThreadStruct* p_struct, string p_file, wstring p_filename, Model*	p_pmodel, D3D11_SAMPLER_DESC* p_psampler, wstring	p_Secondfilename = L"\0", unsigned int p_numInstance = 0, InstanceType* p_instances = nullptr);
+
+
+	void DEMO_APP::DrawStars(Model* p_star); // only use for star models
 
 	void TransparentStarsDraw();
 
@@ -544,10 +563,12 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	XMStoreFloat4x4(&m_multiStarModel[2].m_objMatrix.m_mxConstMatrix, temp);
 
 	CreateSkyBox(&SamplerDesc);
+
 	SkyBox.ScaleModel(50);
+
 	Pyramid.SetAnimation(4, (float)512);
 
-	CreateObj("resource/Models/test pyramid.obj", Pyramid, L"resource/Texture/numbers_test.dds", &SamplerDesc);
+
 
 	temp = XMMatrixTranslation(1.0f, 1.0f, 0) * XMLoadFloat4x4(&m_mxWorldMatrix);
 
@@ -561,7 +582,62 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	triangle[2].pos = XMFLOAT4(2.5f, 2.5f, 0, 1.0f);
 	triangle[3].pos = XMFLOAT4(2.5f, 0, 0, 1.0f);
 
-	CreateObj("resource/Models/Dorumon.obj", Dorumon, L"resource/Texture/Dorumon.dds", &SamplerDesc, nullptr, 4, triangle);
+	vector<thread*> vt_ThreadHolder;
+
+	ThreadStruct ModelInfo[6];
+
+	mutex LoaderMutex;
+	condition_variable condition;
+	bool locked;
+	CreateThreadStruct(&ModelInfo[0], "resource/Models/Dorumon.obj", L"resource/Texture/Dorumon.dds", &Dorumon, &SamplerDesc, L"\0", 4, triangle);
+	CreateThreadStruct(&ModelInfo[1], "resource/Models/Pyramid.obj", L"resource/Texture/numbers_test.dds", &Pyramid, &SamplerDesc);
+	CreateThreadStruct(&ModelInfo[2], "resource/Models/DinoTigermon.obj", L"resource/Texture/DinoTigermon.dds", &DinoTiger, &SamplerDesc);
+	CreateThreadStruct(&ModelInfo[3], "resource/Models/DoruGreymon.obj", L"resource/Texture/DoruGreymon.dds", &DoruGreymon, &SamplerDesc);
+	CreateThreadStruct(&ModelInfo[4], "resource/Models/Dorugoramon.obj", L"resource/Texture/Dorugoramon.dds", &Dorugoramon, &SamplerDesc, L"resource/Normals/Dorugoramon.dds");
+	CreateThreadStruct(&ModelInfo[5], "resource/Models/Dorugamon.obj", L"resource/Texture/Dorugamon.dds", &Dorugamon, &SamplerDesc, L"resource/Normals/Dorugamon2.dds");
+
+	//CreateObj(, Pyramid, L"resource/Texture/numbers_test.dds", &SamplerDesc);
+	//CreateObj("resource/Models/Dorumon.obj", Dorumon, L"resource/Texture/Dorumon.dds", &SamplerDesc, nullptr, 4, triangle);
+	//CreateObj("resource/Models/DinoTigermon.obj", DinoTiger, L"resource/Texture/DinoTigermon.dds", &SamplerDesc);
+	//CreateObj("resource/Models/DoruGreymon.obj", DoruGreymon, L"resource/Texture/DoruGreymon.dds", &SamplerDesc);
+	//CreateObj("resource/Models/Dorugoramon.obj", Dorugoramon, L"resource/Texture/Dorugoramon.dds", &SamplerDesc, L"resource/Normals/Dorugoramon.dds");
+	//CreateObj("resource/Models/Dorugamon.obj", Dorugamon, L"resource/Texture/Dorugamon.dds", &SamplerDesc, L"resource/Normals/Dorugamon2.dds");
+
+
+	for (int i = 0; i < 6; i++)
+	{
+		ModelInfo[i].m_pCondition = &condition;
+		ModelInfo[i].m_pThreadLock = &LoaderMutex;
+		ModelInfo[i].m_lock = &locked;
+		thread * temp = new thread(&DEMO_APP::MultiThreadCreateObj, this, &ModelInfo[i]);
+		vt_ThreadHolder.push_back(temp);
+	}
+
+	//Looping through the vector to join the main thread
+	for each (std::thread* var in vt_ThreadHolder)
+	{
+		//Joining the thread
+		var->join();
+	}
+
+#pragma region Cleaning the Vector
+	for (int i = vt_ThreadHolder.size() - 1; vt_ThreadHolder.size() > 0;)
+	{
+		if (vt_ThreadHolder[i])
+		{
+			//assigning the temp thread to the dynamic thread
+			std::thread * temp = vt_ThreadHolder[i];
+			//cleaning up
+			delete temp;
+			//clearing the garbage memory
+			vt_ThreadHolder.pop_back();
+			//reassigning the index
+			i = vt_ThreadHolder.size() - 1;
+		}
+	}
+#pragma endregion
+
+
 	delete[] triangle;
 	triangle = nullptr;
 
@@ -574,8 +650,8 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	Dorumon.ScaleModel(0.5f);
 
 
-	CreateObjCube("resource/Models/Tree.obj", Tree, L"resource/Texture/Tree.dds", &SamplerDesc);
 
+	CreateObjCube("resource/Models/Tree.obj", Tree, L"resource/Texture/Tree.dds", &SamplerDesc);
 	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(2, 0, 2);
 
 	//temp = XMMatrixRotationY(XMConvertToRadians(180)) * temp;
@@ -586,7 +662,6 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 #pragma region Drawing a DinoTigermon
 
-	CreateObj("resource/Models/DinoTigermon.obj", DinoTiger, L"resource/Texture/DinoTigermon.dds", &SamplerDesc);
 
 	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 0, -3);
 
@@ -602,7 +677,6 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	m_StarModel.SetModelPosition(pos.x, 3, pos.z);
 
 #pragma region Creating Dorugreymon
-	CreateObj("resource/Models/DoruGreymon.obj", DoruGreymon, L"resource/Texture/DoruGreymon.dds", &SamplerDesc);
 
 	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 0, 2.0f);
 
@@ -615,7 +689,6 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 
 #pragma region Dorugoramon
 
-	CreateObj("resource/Models/Dorugoramon.obj", Dorugoramon, L"resource/Texture/Dorugoramon.dds", &SamplerDesc, L"resource/Normals/Dorugoramon.dds");
 
 	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(-1, 0, -1);
 
@@ -640,7 +713,6 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 #pragma endregion
 
 #pragma region Creating Dorugamon
-	CreateObj("resource/Models/Dorugamon.obj", Dorugamon, L"resource/Texture/Dorugamon.dds", &SamplerDesc, L"resource/Normals/Dorugamon2.dds");
 
 	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(2, 1.75f, -1);
 
@@ -940,15 +1012,16 @@ bool DEMO_APP::Run()
 	if (GetAsyncKeyState('0') & 0x1)
 	{
 		XMMATRIX view = XMMatrixIdentity();
-
 		//for the Look At Function
-		XMVECTOR pos = XMLoadFloat3(&XMFLOAT3(0, 1, -4));
+		XMVECTOR pos = XMLoadFloat3(&XMFLOAT3(0, 2, -4));
 		XMVECTOR focus = XMLoadFloat3(&XMFLOAT3(0, 0, 0));
-		XMVECTOR height = XMLoadFloat3(&XMFLOAT3(0, 2, 0));
+		XMVECTOR height = XMLoadFloat3(&XMFLOAT3(0, 1, 0));
 
 		//Creating the Camera
 		view = XMMatrixLookAtLH(pos, focus, height);
+		//Creating the Camera
 		XMStoreFloat4x4(&m_mxViewMatrix, view);
+
 		SceneMatrices.matrix_sceneCamera = m_mxViewMatrix;
 
 		//Skybox
@@ -970,8 +1043,7 @@ bool DEMO_APP::Run()
 
 		CopyView.r[3] = XMVectorSet(0, 0, 0, 1);
 
-
-		CopyView = CopyView*XMLoadFloat4x4(&rotation);
+		CopyView = XMLoadFloat4x4(&rotation) * CopyView;
 
 		CopyView.r[3] = ViewPos;
 
@@ -1033,7 +1105,9 @@ bool DEMO_APP::Run()
 
 	DrawObj(&Ground, &input, m_shaderVS, m_MultiTexturePS, nullptr, 0);
 
-	DrawStar();
+	DrawStar(&m_StarModel);
+
+	//DrawStar(m_StarModel2);
 
 	XMFLOAT3 pos = m_StarModel.GetModelPosition();
 
@@ -1799,10 +1873,28 @@ void DEMO_APP::CreateStar(Model* star, unsigned int numStars, D3D11_SAMPLER_DESC
 
 		star[i].CreateBuffers(m_iDevice, maxIndices, indices);
 
-		XMMATRIX temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 2, 0);
+		XMMATRIX temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 3, 0);
 
 		XMStoreFloat4x4(&star[i].m_objMatrix.m_mxConstMatrix, temp);
 	}
+
+}
+
+
+void DEMO_APP::MultiThreadCreateObj(ThreadStruct* p_thread)
+{
+	INPUT_VERTEX* ObjVerts = nullptr;
+	unsigned int * ObjectIndices = nullptr;
+	unsigned int max = 0;
+	unsigned int maxIndex = 0;
+
+	MultithreadLoader(p_thread->m_lock, p_thread->m_pThreadLock, p_thread->m_pCondition, p_thread->file.c_str(), &ObjVerts, &ObjectIndices, max, maxIndex);
+
+	p_thread->p_model->loadVerts(max, ObjVerts);
+
+	p_thread->p_model->CreateTexture(m_iDevice, p_thread->filename.c_str(), p_thread->Secondfilename.c_str(), p_thread->p_sampler);
+
+	p_thread->p_model->CreateBuffers(m_iDevice, maxIndex, ObjectIndices, p_thread->numInstance, p_thread->instances);
 
 }
 
@@ -1881,7 +1973,7 @@ void DEMO_APP::DrawObj(Model* p_model, BufferInput* p_input, ID3D11VertexShader*
 
 }
 
-void DEMO_APP::DrawStar()
+void DEMO_APP::DrawStar(Model* p_model)
 {
 	D3D11_MAPPED_SUBRESOURCE resource;
 	//D3D11_MAPPED_SUBRESOURCE SceneResource;
@@ -1890,7 +1982,7 @@ void DEMO_APP::DrawStar()
 #pragma region Star constantBuffer
 
 
-	matrix = XMLoadFloat4x4(&m_StarModel.m_objMatrix.m_mxConstMatrix);
+	matrix = XMLoadFloat4x4(&p_model->m_objMatrix.m_mxConstMatrix);
 
 	matrix = XMMatrixRotationY((float)dt.Delta()) * matrix;
 
@@ -1898,9 +1990,9 @@ void DEMO_APP::DrawStar()
 
 	matrix *= XMMatrixTranslation(ptTransX, 0, 0);
 
-	XMStoreFloat4x4(&m_StarModel.m_objMatrix.m_mxConstMatrix, matrix);
+	XMStoreFloat4x4(&p_model->m_objMatrix.m_mxConstMatrix, matrix);
 
-	MappingObjMatrix(resource, m_StarModel.m_objMatrix);
+	MappingObjMatrix(resource, p_model->m_objMatrix);
 
 
 	//////////////////////////////////////////////////////////////////////
@@ -1921,7 +2013,7 @@ void DEMO_APP::DrawStar()
 
 }
 
-void DEMO_APP::DrawStar(Model* p_star)
+void DEMO_APP::DrawStars(Model* p_star)
 {
 	D3D11_MAPPED_SUBRESOURCE resource;
 	//D3D11_MAPPED_SUBRESOURCE SceneResource;
@@ -2007,7 +2099,7 @@ void DEMO_APP::TransparentStarsDraw()
 
 	for (int i = (store.size() - 1); i >= 0; --i)
 	{
-		DrawStar(&m_multiStarModel[store[i]]);
+		DrawStars(&m_multiStarModel[store[i]]);
 	}
 }
 
@@ -2154,16 +2246,16 @@ void DEMO_APP::UpdateSkyBox(XMFLOAT4X4& rot)
 	//camera = XMMatrixInverse(nullptr, camera);
 
 	XMVECTOR SkyPos = matrix.r[3];
-	matrix.r[3] = XMVectorSet(0, 0, 0, 1);
 	matrix = XMMatrixInverse(nullptr, matrix);
+	matrix.r[3] = XMVectorSet(0, 0, 0, 1);
 
 	if (fabsf((float)distance.x) > fabsf((float)distance.y))
 	{
-		matrix = XMMatrixRotationY(XMConvertToRadians((float)distance.x) *0.5f)*matrix;
+		matrix = matrix*XMMatrixRotationY(XMConvertToRadians((float)distance.x) *0.5f);
 	}
 	else if (fabsf((float)distance.x) < fabsf((float)distance.y))
 	{
-		matrix = matrix * XMMatrixRotationX(XMConvertToRadians((float)distance.y)* 0.5f);
+		matrix = XMMatrixRotationX(XMConvertToRadians((float)distance.y)* 0.5f)*matrix;
 	}
 	matrix = XMMatrixInverse(nullptr, matrix);
 
@@ -2205,6 +2297,17 @@ void DEMO_APP::CreateSkyBox(D3D11_SAMPLER_DESC * p_sampler)
 	XMStoreFloat4x4(&SkyBox.m_objMatrix.m_mxConstMatrix, temp);
 
 	//SkyBox.ScaleModel(1.0f);
+}
+
+void DEMO_APP::CreateThreadStruct(ThreadStruct* p_struct, string p_file, wstring p_filename, Model*	p_pmodel, D3D11_SAMPLER_DESC* p_psampler, wstring	p_Secondfilename, unsigned int p_numInstance, InstanceType* p_instances)
+{
+	p_struct->file = p_file;
+	p_struct->filename = p_filename;
+	p_struct->p_model = p_pmodel;
+	p_struct->p_sampler = p_psampler;
+	p_struct->Secondfilename = p_Secondfilename;
+	p_struct->numInstance = p_numInstance;
+	p_struct->instances = p_instances;
 }
 
 void DEMO_APP::CreateConstBuffers()

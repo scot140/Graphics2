@@ -16,7 +16,7 @@
 
 #include <DirectXMath.h>
 using namespace DirectX;
-
+#include <string.h>
 struct Object
 {
 	XMFLOAT4X4 m_mxConstMatrix;
@@ -77,3 +77,4 @@ struct SptLight
 	XMFLOAT4 pos;
 	XMFLOAT4 color;
 };
+
