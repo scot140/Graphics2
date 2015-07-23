@@ -47,6 +47,9 @@
     <ClInclude Include="source\DDSTextureLoader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="source\PixelShader.hlsl">
@@ -92,6 +95,9 @@
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="source\VS_Instancing.hlsl">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="source\PS_SpecularSpotLight.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>

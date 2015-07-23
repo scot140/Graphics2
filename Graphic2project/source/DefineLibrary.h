@@ -9,7 +9,7 @@
 #define RASTER_NUMPIXEL (RASTER_WIDTH * RASTER_HEIGHT)
 #define ALIGN_REGISTER _declspec(align(16))
 #define ZERO_OUT(x) ZeroMemory(&x,sizeof(x));
-#define SAFE_RELEASE(x) if(x) { x->Release(); x = nullptr; }
+#define SAFE_RELEASE(x) if(x != nullptr) { x->Release(); x = nullptr; }
 
 #include <d3d11.h>
 #pragma comment(lib, "d3d11.lib")
@@ -73,7 +73,7 @@ struct SptLight
 	float power;
 	XMFLOAT3 coneDir;
 	float coneWidth; // use Radians please do not forget
-	XMFLOAT3 padding;
+	XMFLOAT3 CamPos;
 	XMFLOAT4 pos;
 	XMFLOAT4 color;
 };

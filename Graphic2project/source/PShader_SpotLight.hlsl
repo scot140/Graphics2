@@ -12,7 +12,7 @@ struct Light
 	float power;
 	float3 coneDir;
 	float coneWidth; // use Radians please do not forget
-	float3 padding;
+	float3 CamPos;
 	float4 pos;
 	float4 color;
 };
@@ -33,7 +33,7 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 
 	float4 lightDir = normalize(light.pos - input.WorldPos);
 
-	float surfaceRatio = saturate(dot(-lightDir, float4(light.coneDir,1)));
+	float surfaceRatio = saturate(dot(-lightDir, float4(light.coneDir, 1)));
 
 	float spotFactor = (surfaceRatio > light.coneWidth) ? 1 : 0;
 
@@ -46,5 +46,23 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 
 	float4 finalColor = spotFactor * lightRatio * textureColor;
 
-		return float4(finalColor.xyz, textureColor.a);
+		if (spotFactor == 1)
+		{
+
+			float3 viewDir = normalize(light.CamPos - input.WorldPos.xyz);
+				//float3 LDirection = float3(-lightDir.x, lightDir.y, lightDir.z);
+				float3 HalfVector = normalize(reflect(viewDir, (-lightDir.xyz)));
+				float SpecularFactor = saturate(dot(normalize(input.norm), normalize(HalfVector)));
+
+			float4 specular = (float4)0;
+				if (SpecularFactor > 0)
+				{
+					SpecularFactor = pow(SpecularFactor, 32);
+					specular = float4(1, 1, 1, 1) * 1.0f * SpecularFactor;
+				}
+
+			finalColor = finalColor + specular;
+		}
+
+	return float4(finalColor.xyz, textureColor.a);
 }
