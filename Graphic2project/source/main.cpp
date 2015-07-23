@@ -610,6 +610,7 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 		ModelInfo[i].m_pThreadLock = &LoaderMutex;
 		ModelInfo[i].m_lock = &locked;
 		thread * temp = new thread(&DEMO_APP::MultiThreadCreateObj, this, &ModelInfo[i]);
+		//temp->detach();
 		vt_ThreadHolder.push_back(temp);
 	}
 
