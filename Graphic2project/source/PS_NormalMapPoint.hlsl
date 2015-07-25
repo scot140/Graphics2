@@ -21,6 +21,7 @@ struct Light
 cbuffer cPerPixel : register(b0)
 {
 	Light light;
+	Light second;
 }
 
 texture2D baseTexture : register(t0);
@@ -61,7 +62,20 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 
 	atten = pow(atten, light.power);
 
-	float4 finalColor = ratio * light.ambient * textureColor * atten;
+		float4 FirstLight = ratio * light.ambient * textureColor * atten;
+
+
+			float4 lightDirection2 = normalize(second.pos - input.WorldPos);
+
+			float ratio2 = saturate(dot(normalize(lightDirection2.xyz), newNormal));
+
+		float atten2 = 1.0 - saturate(length(second.pos - input.WorldPos) / second.range);
+
+		atten2 = pow(atten2, second.power);
+
+		float4 SecondLight = ratio2 * second.ambient * textureColor * atten2;
+
+			float4 finalColor = saturate(FirstLight + SecondLight);
 
 
 

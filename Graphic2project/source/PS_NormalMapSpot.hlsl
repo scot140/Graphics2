@@ -22,6 +22,7 @@ struct Light
 cbuffer cPerPixel : register(b0)
 {
 	Light light;
+	Light second;
 }
 
 texture2D baseTexture : register(t0);
@@ -62,9 +63,27 @@ float4 main(OUTPUT_VERTEX input) : SV_TARGET
 	{
 		lightRatio = saturate(dot(lightDir, float4(newNormal, 0)));
 	}
+		
+	float4 FirstColor = spotFactor * lightRatio * textureColor;
 
-	float4 finalColor = spotFactor * lightRatio * textureColor;
+		//Combinding lights
+		float4 lightDir2 = normalize(second.pos - input.WorldPos);
 
+		float surfaceRatio2 = saturate(dot(-normalize(lightDir2), float4(normalize(second.coneDir).xyz, 1)));
+
+	float spotFactor2 = (surfaceRatio2 > second.coneWidth) ? 1 : 0;
+
+	float lightRatio2 = 0;
+
+	if (spotFactor2 == 1)
+	{
+		lightRatio2 = saturate(dot(lightDir2, float4(newNormal, 0)));
+	}
+
+	float4 SecondColor = spotFactor2 * lightRatio2 * textureColor;
+
+		float4 finalColor = saturate(FirstColor + SecondColor);
+		 
 
 		return float4(finalColor.rgb, textureColor.a);
 }

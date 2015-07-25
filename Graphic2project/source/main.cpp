@@ -60,6 +60,9 @@ using namespace std;
 #define SCENE				1
 #define TIMER				2
 
+#define FIRSTLIGHT			0
+#define SECONDLIGHT			1
+
 #define UP					0
 #define DOWN				1
 #define RIGHT				2
@@ -189,9 +192,9 @@ class DEMO_APP
 	bool CursorClientCheck(POINT curr);
 
 	Object m_objMatrix;
-	PtLight m_plgLight;
-	LIGHTING m_lgLight;
-	SptLight m_sptLight;
+	PtLight m_plgLight[2];
+	LIGHTING m_lgLight[2];
+	SptLight m_sptLight[2];
 
 	Scene m_scnMatrix;
 	ANIMATION m_aniAnimation;
@@ -232,6 +235,11 @@ public:
 	LIGHTING DirectionLight;
 	PtLight PointLight;
 	SptLight SpotLight;
+
+	LIGHTING DirectionLight2;
+	PtLight PointLight2;
+	SptLight SpotLight2;
+
 	unsigned int InstanceCount;
 
 	float dirX = -1;
@@ -284,9 +292,9 @@ public:
 	void CreateRenderToTexture();
 	void MappingObjMatrix(D3D11_MAPPED_SUBRESOURCE& p_Scene, Object& p_Matrix);
 	void MappingAnimation(D3D11_MAPPED_SUBRESOURCE& p_Scene, Model& p_Model);
-	void MappingLighting(D3D11_MAPPED_SUBRESOURCE& p_Scene, LIGHTING& p_light);
-	void MappingPointLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, PtLight& p_light);
-	void MappingSpotLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, SptLight& p_light);
+	void MappingLighting(D3D11_MAPPED_SUBRESOURCE& p_Scene, LIGHTING& p_light, LIGHTING& p_light2);
+	void MappingPointLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, PtLight& p_light, PtLight& p_light2);
+	void MappingSpotLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, SptLight& p_light, SptLight& p_light2);
 	void RedrawSceneBuffer(D3D11_MAPPED_SUBRESOURCE& p_Scene, Scene& p_Matrix);
 	void RenderToTextureSceneBuffer(D3D11_MAPPED_SUBRESOURCE& p_Scene, Scene& p_Matrix);
 	void CreateConstBuffers();
@@ -536,6 +544,10 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	DirectionLight.ambient = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	DirectionLight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
+	DirectionLight2.dir = XMFLOAT3(1, 1, 0);
+	DirectionLight2.ambient = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
+	DirectionLight2.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+
 	CreateConstBuffers();
 	CreateRenderToTexture();
 
@@ -549,6 +561,9 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 	CreateStar(&SamplerDesc);
 
 	m_StarModel.ScaleModel(0.5);
+
+	CreateStar(&m_StarModel2, 1, &SamplerDesc);
+	m_StarModel2.ScaleModel(0.5);
 
 	CreateStar(m_multiStarModel, 3, &SamplerDesc);
 
@@ -689,7 +704,6 @@ DEMO_APP::DEMO_APP(HINSTANCE hinst, WNDPROC proc)
 #pragma endregion
 
 #pragma region Dorugoramon
-
 
 	temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(-1, 0, -1);
 
@@ -1108,42 +1122,74 @@ bool DEMO_APP::Run()
 
 	DrawStar(&m_StarModel);
 
-	//DrawStar(m_StarModel2);
+	DrawStar(&m_StarModel2);
 
 	XMFLOAT3 pos = m_StarModel.GetModelPosition();
+	XMFLOAT3 pos2 = m_StarModel2.GetModelPosition();
 
+#pragma region first light source
 	//DirectionLight
 	XMFLOAT3 normPos = pos;
 
-	XMVECTOR normal = XMLoadFloat3(&pos);
+	XMVECTOR normal = XMLoadFloat3(&normPos);
 	normal /= 2;
 
 	XMStoreFloat3(&normPos, normal);
 
 	DirectionLight.dir = XMFLOAT3(-normPos.x, -normPos.y, 0);
 
-	MappingLighting(resource, DirectionLight);
-
-
+	//POint light
 	PointLight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 1);
 	PointLight.power = 14;
 	PointLight.range = 100;
 	PointLight.color = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	ZERO_OUT(PointLight.padding);
 
-	MappingPointLight(resource, PointLight);
-
+	//Spot Light Set up
 	SpotLight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 1);
 	SpotLight.power = 64;
 	SpotLight.coneDir = XMFLOAT3(0, -1, 0);
-	SpotLight.coneWidth = cos(XMConvertToRadians(20.0f));
+	SpotLight.coneWidth = cos(XMConvertToRadians(30.0f));
 	SpotLight.color = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
-	XMMATRIX temp = XMMatrixInverse(nullptr, XMLoadFloat4x4(&m_mxViewMatrix));
+	XMMATRIX temp = XMMatrixInverse(nullptr,XMLoadFloat4x4(&m_mxViewMatrix));
 
 	XMStoreFloat3(&SpotLight.CamPos, temp.r[3]);
 
-	MappingSpotLight(resource, SpotLight);
+#pragma endregion
+
+#pragma region SecondLightSource
+	//directional lighting
+
+	normPos = pos2;
+
+	normal = XMLoadFloat3(&normPos);
+
+	normal = XMVector3Normalize(normal);
+
+	XMStoreFloat3(&normPos, normal);
+
+	DirectionLight2.dir = XMFLOAT3(-normPos.x, -normPos.y, 0);
+
+	//Point Lighting
+	PointLight2.pos = XMFLOAT4(pos2.x, pos2.y, pos2.z, 1);
+	PointLight2.power = 14;
+	PointLight2.range = 100;
+	PointLight2.color = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
+
+	//SpotLight
+	SpotLight2.pos = XMFLOAT4(pos2.x, pos2.y, pos2.z, 1);
+	SpotLight2.power = 64;
+	SpotLight2.coneDir = XMFLOAT3(0, -1, 0);
+	SpotLight2.coneWidth = cos(XMConvertToRadians(30.0f));
+	SpotLight2.color = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+
+	XMStoreFloat3(&SpotLight2.CamPos, temp.r[3]);
+#pragma endregion
+
+	MappingLighting(resource, DirectionLight, DirectionLight2);
+	MappingPointLight(resource, PointLight, PointLight2);
+	MappingSpotLight(resource, SpotLight, SpotLight2);
 
 #pragma region cube constantBuffer
 	matrix = XMLoadFloat4x4(&m_mdCube.m_objMatrix.m_mxConstMatrix);
@@ -1874,13 +1920,12 @@ void DEMO_APP::CreateStar(Model* star, unsigned int numStars, D3D11_SAMPLER_DESC
 
 		star[i].CreateBuffers(m_iDevice, maxIndices, indices);
 
-		XMMATRIX temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 3, 0);
+		XMMATRIX temp = XMLoadFloat4x4(&m_mxWorldMatrix) * XMMatrixTranslation(0, 3, -1);
 
 		XMStoreFloat4x4(&star[i].m_objMatrix.m_mxConstMatrix, temp);
 	}
 
 }
-
 
 void DEMO_APP::MultiThreadCreateObj(ThreadStruct* p_thread)
 {
@@ -2057,22 +2102,24 @@ void DEMO_APP::TransparentStarsDraw()
 
 	XMVECTOR Starpos[3];
 
+	///
+	XMVECTOR CameraZaxis = inverseCopy.r[2];
+
 	//getting the models position
 	Starpos[0] = camPos - XMLoadFloat3(&m_multiStarModel[0].GetModelPosition());
 	Starpos[1] = camPos - XMLoadFloat3(&m_multiStarModel[1].GetModelPosition());
 	Starpos[2] = camPos - XMLoadFloat3(&m_multiStarModel[2].GetModelPosition());
 
 	XMFLOAT3 result[3];
-	XMFLOAT3 Copyresult[3];
 	vector<float> resultList;
 
-	XMStoreFloat3(&result[0], XMVector3Length(Starpos[0]));
+	XMStoreFloat3(&result[0], XMVector3Dot(Starpos[0], CameraZaxis));
 	resultList.push_back(result[0].x);
 
-	XMStoreFloat3(&result[1], XMVector3Length(Starpos[1]));
+	XMStoreFloat3(&result[1], XMVector3Dot(Starpos[1], CameraZaxis));
 	resultList.push_back(result[1].x);
 
-	XMStoreFloat3(&result[2], XMVector3Length(Starpos[2]));
+	XMStoreFloat3(&result[2], XMVector3Dot(Starpos[2], CameraZaxis));
 	resultList.push_back(result[2].x);
 
 	unsigned int oldIndex = 0;
@@ -2081,24 +2128,23 @@ void DEMO_APP::TransparentStarsDraw()
 
 #pragma region Sorting Needs work
 
-
 	std::sort(resultList.begin(), resultList.end());
 
-
-	for (unsigned int arrayIndex = 0; arrayIndex < 3; arrayIndex++)
+	for (int arrayIndex = 0; arrayIndex < 3; arrayIndex++)
 	{
 		for (unsigned int i = 0; i < resultList.size(); i++)
 		{
-			if (resultList[arrayIndex] == result[i].x)
+			if (resultList[arrayIndex] == result[i].z)
 			{
 				store.push_back(i);
 				break;
 			}
 		}
 	}
+
 #pragma endregion
 
-	for (int i = (store.size() - 1); i >= 0; --i)
+	for (int i = 0; i < 3; i++)
 	{
 		DrawStars(&m_multiStarModel[store[i]]);
 	}
@@ -2152,41 +2198,43 @@ void DEMO_APP::MappingAnimation(D3D11_MAPPED_SUBRESOURCE& p_Scene, Model& p_Mode
 #pragma endregion
 }
 
-void DEMO_APP::MappingLighting(D3D11_MAPPED_SUBRESOURCE& p_Scene, LIGHTING& p_light)
+void DEMO_APP::MappingLighting(D3D11_MAPPED_SUBRESOURCE& p_Scene, LIGHTING& p_light, LIGHTING& p_light2)
 {
 	ZeroMemory(&p_Scene, sizeof(D3D11_MAPPED_SUBRESOURCE));
 
 	m_dcConext->Map(m_pConstBufferLight_PS, 0, D3D11_MAP_WRITE_DISCARD, NULL, &p_Scene);
 
-	m_lgLight = p_light;
+	m_lgLight[FIRSTLIGHT] = p_light;
+	m_lgLight[SECONDLIGHT] = p_light2;
 
-	memcpy(p_Scene.pData, &m_lgLight, sizeof(LIGHTING));
+	memcpy(p_Scene.pData, &m_lgLight, sizeof(LIGHTING)*2);
 
 	m_dcConext->Unmap(m_pConstBufferLight_PS, 0);
 }
 
-void DEMO_APP::MappingPointLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, PtLight& p_light)
+void DEMO_APP::MappingPointLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, PtLight& p_light, PtLight& p_light2)
 {
 	ZeroMemory(&p_Scene, sizeof(D3D11_MAPPED_SUBRESOURCE));
 
 	m_dcConext->Map(m_pCBufferPointLight_PS, 0, D3D11_MAP_WRITE_DISCARD, NULL, &p_Scene);
 
-	m_plgLight = p_light;
+	m_plgLight[FIRSTLIGHT] = p_light;
+	m_plgLight[SECONDLIGHT] = p_light2;
 
-	memcpy(p_Scene.pData, &m_plgLight, sizeof(PtLight));
+	memcpy(p_Scene.pData, &m_plgLight, sizeof(PtLight)*2);
 	m_dcConext->Unmap(m_pCBufferPointLight_PS, 0);
 }
 
-void DEMO_APP::MappingSpotLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, SptLight& p_light)
+void DEMO_APP::MappingSpotLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, SptLight& p_light, SptLight& p_light2)
 {
 	ZeroMemory(&p_Scene, sizeof(D3D11_MAPPED_SUBRESOURCE));
 
 	m_dcConext->Map(m_pCBufferSpotLight_PS, 0, D3D11_MAP_WRITE_DISCARD, NULL, &p_Scene);
 
-	m_sptLight = p_light;
+	m_sptLight[FIRSTLIGHT] = p_light;
+	m_sptLight[SECONDLIGHT] = p_light2;
 
-	memcpy(p_Scene.pData, &m_sptLight, sizeof(SptLight));
-
+	memcpy(p_Scene.pData, &m_sptLight, sizeof(SptLight)*2);
 	m_dcConext->Unmap(m_pCBufferSpotLight_PS, 0);
 }
 
@@ -2341,18 +2389,18 @@ void DEMO_APP::CreateConstBuffers()
 	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBufferAnimation_PS);
 
 
-	cBufferDesc.ByteWidth = sizeof(LIGHTING);
-	ConstantBufferData.pSysMem = &m_lgLight;
+	cBufferDesc.ByteWidth = sizeof(LIGHTING) * 2;
+	ConstantBufferData.pSysMem = m_lgLight;
 
 	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pConstBufferLight_PS);
 
-	cBufferDesc.ByteWidth = sizeof(PtLight);
-	ConstantBufferData.pSysMem = &m_plgLight;
+	cBufferDesc.ByteWidth = sizeof(PtLight) * 2;
+	ConstantBufferData.pSysMem = m_plgLight;
 
 	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pCBufferPointLight_PS);
 
-	cBufferDesc.ByteWidth = sizeof(SptLight);
-	ConstantBufferData.pSysMem = &m_sptLight;
+	cBufferDesc.ByteWidth = sizeof(SptLight) * 2;
+	ConstantBufferData.pSysMem = m_sptLight;
 
 	m_iDevice->CreateBuffer(&cBufferDesc, &ConstantBufferData, &m_pCBufferSpotLight_PS);
 }

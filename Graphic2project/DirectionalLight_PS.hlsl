@@ -19,6 +19,7 @@ struct Light
 cbuffer cPerPixel : register(b0)
 {
 	Light light;
+	Light second;
 }
 
 texture2D baseTexture : register(t0);
@@ -28,14 +29,30 @@ SamplerState filter: register(s0);
 float4 main(OUTPUT_VERTEX input) : SV_TARGET
 {
 
-	float4 diffuse = baseTexture.Sample(filter, input.uvOut);
+	float4 textureColor = baseTexture.Sample(filter, input.uvOut);
 
-	float3 color;
+	
+	/*float4 finalColor;
 
-	float3 ratio = dot(-light.dir, input.norm);
+	float ratio = dot(-light.dir, newNormal);
 
-		color = saturate(ratio * light.diffuse.rgb * diffuse.rgb);
+	finalColor = saturate(ratio * light.diffuse * textureColor);
 
-	color = light.ambient.rgb * color;
-	return float4(color, diffuse.a);
+	finalColor = light.ambient * finalColor;
+
+	return float4(finalColor.xyz, textureColor.a);*/
+
+
+	float ratio = dot(-light.dir, input.norm);
+	float3 FirstLight = saturate(ratio * light.diffuse.rgb * textureColor.rgb);
+		float3 FirstColor = light.ambient.rgb * FirstLight;
+
+	float ratio2 = dot(-second.dir, input.norm);
+	float3 SecondLight = saturate(ratio2 * second.diffuse.rgb * textureColor.rgb);
+		float3 SecondColor = second.ambient.rgb * SecondLight;
+
+
+		float3 Finalcolor = saturate(SecondColor + FirstColor);
+
+	return float4(Finalcolor, textureColor.a);
 }

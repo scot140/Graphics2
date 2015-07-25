@@ -8,6 +8,7 @@
 #include <condition_variable>
 #include <sstream>
 #include <map>
+#include <unordered_map>
 
 #pragma warning(disable : 4996)
 
@@ -168,6 +169,10 @@ void MultithreadLoader(bool* p_locked, mutex* m_pThreadLock, condition_variable*
 
 	vector<Objhelper> objectIndices;
 	vector<Objhelper> StoragetIndices;
+
+	unordered_map<string, Objhelper> ObjHolder;
+	unordered_map<string, int> indexStorage;
+
 	vector<INPUT_VERTEX> sampleVerts;
 	vector<unsigned int>  normalIndices, Indices;
 
@@ -218,13 +223,7 @@ void MultithreadLoader(bool* p_locked, mutex* m_pThreadLock, condition_variable*
 		{
 			unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
 
-			//fscanf(myfile, "%[^\n]s", &mapIndex[0]);
-
 			int matches = fscanf(myfile, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &vertexIndex[0], &uvIndex[0], &normalIndex[0], &vertexIndex[1], &uvIndex[1], &normalIndex[1], &vertexIndex[2], &uvIndex[2], &normalIndex[2]);
-
-
-
-			//sprintf_s(mapIndex[0].c_str(), 100, "%d/%d/%d", &vertexIndex[0], &uvIndex[0], &normalIndex[0]);
 
 			if (matches != 9){
 				printf("File can't be read by our simple parser : ( Try exporting with other options\n");
@@ -236,14 +235,14 @@ void MultithreadLoader(bool* p_locked, mutex* m_pThreadLock, condition_variable*
 			stringstream output;
 			for (unsigned int i = 0; i < 3; i++)
 			{
-
-				output << vertexIndex[i] << uvIndex[i] << normalIndex[i]<<"\0";
+				//uvIndex[i] << normalIndex[i] <<
+				output << vertexIndex[i] << "\0";
 				helper.uvIndex = uvIndex[i] - 1;
 				helper.vertsIndex = vertexIndex[i] - 1;
 				helper.normIndex = normalIndex[i] - 1;
 				helper.mapIndex = output.str();
 				objectIndices.push_back(helper);
-
+				output = stringstream();
 			}
 		}
 	}
@@ -255,7 +254,8 @@ void MultithreadLoader(bool* p_locked, mutex* m_pThreadLock, condition_variable*
 	bool push = true;
 
 	//index finder
-	for (unsigned int i = 0, ind = 0; i < objectIndices.size(); i++, ind = 0)
+
+	/*for (unsigned int i = 0, ind = 0; i < objectIndices.size(); i++, ind = 0)
 	{
 		for (unsigned int index = 0; index < StoragetIndices.size(); index++, ind++)
 		{
@@ -273,8 +273,35 @@ void MultithreadLoader(bool* p_locked, mutex* m_pThreadLock, condition_variable*
 			StoragetIndices.push_back(objectIndices[i]);
 		}
 		push = true;
-	}
+	}*/
 
+	for (unsigned int i = 0, ind = 0; i < objectIndices.size(); i++)
+	{
+		string key = objectIndices[i].mapIndex;
+		
+		// find a match
+		if (ObjHolder.find(key) != ObjHolder.end())
+		{
+			push = false;
+			Indices.push_back(indexStorage[key]);
+			ind++;
+		}
+
+		//didnt find a match
+		if (push)
+		{
+			int newIndex = i - ind;
+
+			indexStorage[key] = newIndex;
+
+			ObjHolder[key] = objectIndices[i];
+			
+			Indices.push_back(newIndex);
+
+			StoragetIndices.push_back(objectIndices[i]);
+		}
+		push = true;
+	}
 
 	(*p_Indices) = new unsigned int[Indices.size()];
 	maxIndices = Indices.size();
@@ -291,14 +318,17 @@ void MultithreadLoader(bool* p_locked, mutex* m_pThreadLock, condition_variable*
 	for (unsigned int i = 0; i < size; i++)
 	{
 		Objhelper finder = StoragetIndices[i];
+
 		XMFLOAT4 foundVert = verts[finder.vertsIndex];
 		XMFLOAT2 foundUV = uvs[finder.uvIndex];
 		XMFLOAT3 foundNorm = normals[finder.normIndex];
+
 		(*test)[i].pos = foundVert;
 		(*test)[i].uv = foundUV;
 		(*test)[i].normals = foundNorm;
 		(*test)[i].col = XMFLOAT4(1, 1, 0, 0);
 	}
+
 	TangentCreation(test, p_Indices, size, maxIndices);
 }
 
