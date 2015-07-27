@@ -1152,7 +1152,7 @@ bool DEMO_APP::Run()
 	SpotLight.coneWidth = cos(XMConvertToRadians(30.0f));
 	SpotLight.color = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
-	XMMATRIX temp = XMMatrixInverse(nullptr,XMLoadFloat4x4(&m_mxViewMatrix));
+	XMMATRIX temp = XMMatrixInverse(nullptr, XMLoadFloat4x4(&m_mxViewMatrix));
 
 	XMStoreFloat3(&SpotLight.CamPos, temp.r[3]);
 
@@ -2182,7 +2182,7 @@ void DEMO_APP::MappingLighting(D3D11_MAPPED_SUBRESOURCE& p_Scene, LIGHTING& p_li
 	m_lgLight[FIRSTLIGHT] = p_light;
 	m_lgLight[SECONDLIGHT] = p_light2;
 
-	memcpy(p_Scene.pData, &m_lgLight, sizeof(LIGHTING)*2);
+	memcpy(p_Scene.pData, &m_lgLight, sizeof(LIGHTING) * 2);
 
 	m_dcConext->Unmap(m_pConstBufferLight_PS, 0);
 }
@@ -2196,7 +2196,7 @@ void DEMO_APP::MappingPointLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, PtLight& p_l
 	m_plgLight[FIRSTLIGHT] = p_light;
 	m_plgLight[SECONDLIGHT] = p_light2;
 
-	memcpy(p_Scene.pData, &m_plgLight, sizeof(PtLight)*2);
+	memcpy(p_Scene.pData, &m_plgLight, sizeof(PtLight) * 2);
 	m_dcConext->Unmap(m_pCBufferPointLight_PS, 0);
 }
 
@@ -2209,7 +2209,7 @@ void DEMO_APP::MappingSpotLight(D3D11_MAPPED_SUBRESOURCE& p_Scene, SptLight& p_l
 	m_sptLight[FIRSTLIGHT] = p_light;
 	m_sptLight[SECONDLIGHT] = p_light2;
 
-	memcpy(p_Scene.pData, &m_sptLight, sizeof(SptLight)*2);
+	memcpy(p_Scene.pData, &m_sptLight, sizeof(SptLight) * 2);
 	m_dcConext->Unmap(m_pCBufferSpotLight_PS, 0);
 }
 
@@ -2575,7 +2575,20 @@ bool DEMO_APP::ShutDown()
 	SAFE_RELEASE(m_dcConext);
 
 
+	SAFE_RELEASE(m_pAlphaCoverage);
+	SAFE_RELEASE(MSAA);
+	SAFE_RELEASE(m_psNormalSpecSpot);
+
+		
+	SAFE_RELEASE(m_RTTShaderResource);
+	SAFE_RELEASE(m_RttZBuffer);
+	SAFE_RELEASE(m_RttDepthView);
+	SAFE_RELEASE(m_RttpDepthState);
+
 	//Releasing the Models
+	m_StarModel2.Release();
+	Dorugamon.Release();
+	Tree.Release();
 	m_StarModel.Release();
 	Pyramid.Release();
 	Dorumon.Release();
@@ -2597,8 +2610,8 @@ bool DEMO_APP::ShutDown()
 #endif
 
 	SAFE_RELEASE(m_dgDebug);
+	SAFE_RELEASE(m_iDevice);
 
-	//SAFE_RELEASE(m_iDevice);
 
 	UnregisterClass(L"DirectXApplication", application);
 	return true;
