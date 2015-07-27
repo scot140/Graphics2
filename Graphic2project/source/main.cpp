@@ -1321,31 +1321,13 @@ bool DEMO_APP::Run()
 
 	if (displayWindow)
 	{
-		RedrawSceneBuffer(SceneResource, m_miniScene);
-#pragma region Pyramid constantBuffer
-
-		////////////////////////////////////////////////////////////////////
-#pragma endregion
-
-#pragma region Dorumon Redraw constantBuffer
-
-		//////////////////////////////////////////////////////////////////////
-
-
-#pragma endregion
-
-#pragma region Star constantBuffer
-		//////////////////////////////////////////////////////////////////////
-
-
-
-#pragma endregion
+		//RedrawSceneBuffer(SceneResource, m_miniScene);
 
 		m_dcConext->RSSetViewports(1, &m_vpSecondaryView);
 
-
 		BufferInput Mini_input;
 		ZERO_OUT(Mini_input);
+
 		Mini_input.ConstVertex = m_pConstBuffer;
 		Mini_input.numVertexSlot = 2;
 
@@ -1359,14 +1341,7 @@ bool DEMO_APP::Run()
 
 		DrawObj(&Pyramid, &Mini_input, m_shaderVS, m_shaderPS, rasterArray, 2);
 
-		Mini_input.numPixelSlot = 1;
-		Mini_input.ConstPixel = &m_pConstBufferLight_PS;
-		Mini_input.ConstVertex = m_pConstBuffer;
-		Mini_input.numVertexSlot = 2;
-
-		DrawObj(&Dorumon, &Mini_input, m_LightVS, m_DLightPS, nullptr, 0);
-
-
+		//DrawObj(&Dorumon, &ModelPixelInput, m_LightVS, m_PScurrentShader, nullptr, 0);
 	}
 #pragma endregion
 
@@ -1429,7 +1404,7 @@ void DEMO_APP::WorldCameraProjectionSetup()
 
 	//ViewPort Projection
 	projection = XMMatrixIdentity();
-	projection = XMMatrixPerspectiveFovLH(FOV, 200 / 200, ZNEAR, ZFAR);
+	projection = XMMatrixPerspectiveFovLH(FOV, ratio, ZNEAR, ZFAR);
 	XMStoreFloat4x4(&m_mxMiniProjectionMatrix, projection);
 
 
